@@ -8,7 +8,6 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Route as RouteIcon,
   RotateCcw,
 } from "lucide-react";
 import { RouteEvaluationRequest } from "../types";
@@ -29,7 +28,6 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     initialValues?.destination || "Dallas, TX"
   );
 
-  // Set default departure to tomorrow at 08:00
   const getDefaultDeparture = () => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -50,8 +48,8 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   );
   const [orsApiKey, setOrsApiKey] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Update fields if initialValues changes (e.g. preset clicked)
   React.useEffect(() => {
     if (initialValues?.origin) setOrigin(initialValues.origin);
     if (initialValues?.destination) setDestination(initialValues.destination);
@@ -84,188 +82,179 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
-        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-          <RouteIcon className="w-4 h-4 text-emerald-400" />
-          <span>Trip Dispatch Parameters</span>
-        </h2>
-        <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
-          3 Alternative Routes
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+      <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800">
+        <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+          Trip Dispatch
         </span>
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
+        >
+          <span>{isCollapsed ? "Expand" : "Collapse"}</span>
+          {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Origin & Destination */}
-        <div className="space-y-2 relative">
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
-              Origin Location
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                required
-                value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-                placeholder="e.g. Chicago, IL or 41.8781,-87.6298"
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-              />
-              <span className="absolute right-3 top-2.5 w-2 h-2 rounded-full bg-emerald-400"></span>
-            </div>
-          </div>
+      {!isCollapsed && (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Origin & Destination */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                  Origin
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={origin}
+                  onChange={(e) => setOrigin(e.target.value)}
+                  placeholder="e.g. Chicago, IL"
+                  className="w-full bg-slate-800 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                />
+              </div>
 
-          {/* Swap button */}
-          <div className="flex justify-end pr-2 -my-1">
-            <button
-              type="button"
-              onClick={swapLocations}
-              title="Swap origin and destination"
-              className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
-              Destination Location
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                required
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                placeholder="e.g. Dallas, TX or 32.7767,-96.7970"
-                className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-              />
-              <span className="absolute right-3 top-2.5 w-2 h-2 rounded-full bg-red-400"></span>
-            </div>
-          </div>
-        </div>
-
-        {/* Departure Time & Load Weight */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-blue-400" />
-              <span>Departure Date & Time</span>
-            </label>
-            <input
-              type="datetime-local"
-              required
-              value={departureTime}
-              onChange={(e) => setDepartureTime(e.target.value)}
-              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1 flex items-center gap-1.5">
-              <Weight className="w-3.5 h-3.5 text-amber-400" />
-              <span>Load Weight (lbs)</span>
-            </label>
-            <input
-              type="number"
-              min="1000"
-              max="120000"
-              step="500"
-              required
-              value={loadWeight}
-              onChange={(e) => setLoadWeight(e.target.value)}
-              placeholder="e.g. 34000"
-              className="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition"
-            />
-          </div>
-        </div>
-
-        {/* Sampling Interval Selector */}
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1.5 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-purple-400" />
-              <span>Sampling Interval (Checkpoint Density)</span>
-            </span>
-            <span className="text-[11px] text-slate-400">
-              Every {stepMiles} miles
-            </span>
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {[10, 25, 50].map((interval) => (
               <button
-                key={interval}
                 type="button"
-                onClick={() => setStepMiles(interval)}
-                className={`py-2 px-3 rounded-lg text-xs font-medium border transition ${
-                  stepMiles === interval
-                    ? "bg-emerald-600/20 text-emerald-400 border-emerald-500 shadow-sm"
-                    : "bg-slate-800/60 text-slate-400 border-slate-700 hover:bg-slate-800 hover:text-slate-200"
-                }`}
+                onClick={swapLocations}
+                title="Swap origin and destination"
+                className="p-2 mt-4 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 transition"
               >
-                {interval} Miles
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
-            ))}
+
+              <div className="flex-1">
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                  Destination
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  placeholder="e.g. Dallas, TX"
+                  className="w-full bg-slate-800 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                />
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Advanced Options Accordion */}
-        <div className="pt-2 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center justify-between w-full text-xs text-slate-400 hover:text-slate-200 py-1 transition"
-          >
-            <span className="flex items-center gap-1.5">
-              <Key className="w-3.5 h-3.5 text-slate-400" />
-              <span>Routing API Key (Optional)</span>
-            </span>
-            {showAdvanced ? (
-              <ChevronUp className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5" />
-            )}
-          </button>
-
-          {showAdvanced && (
-            <div className="mt-2 space-y-2 bg-slate-950/50 p-3 rounded-lg border border-slate-800">
-              <label className="block text-[11px] text-slate-400">
-                OpenRouteService (ORS) API Key:
+          {/* Departure Time & Load Weight */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                Departure (Local)
               </label>
               <input
-                type="password"
-                value={orsApiKey}
-                onChange={(e) => setOrsApiKey(e.target.value)}
-                placeholder="Leave blank for automatic zero-config OSRM"
-                className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                type="datetime-local"
+                required
+                value={departureTime}
+                onChange={(e) => setDepartureTime(e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition"
               />
-              <p className="text-[10px] text-slate-500">
-                Out-of-the-box zero-config mode uses OSRM highway routing + live Open-Meteo weather forecasts.
-              </p>
             </div>
-          )}
-        </div>
 
-        {/* Submit button */}
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="w-full mt-2 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs tracking-wide uppercase transition shadow-lg shadow-emerald-900/30 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-              <span>Evaluating Weather Risk & Routes...</span>
-            </>
-          ) : (
-            <>
-              <Navigation className="w-4 h-4 text-white" />
-              <span>Evaluate 3 Safe Routes</span>
-            </>
-          )}
-        </button>
-      </form>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                Gross Load (lbs)
+              </label>
+              <input
+                type="number"
+                min="1000"
+                max="120000"
+                step="500"
+                required
+                value={loadWeight}
+                onChange={(e) => setLoadWeight(e.target.value)}
+                placeholder="e.g. 34000"
+                className="w-full bg-slate-800 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 transition"
+              />
+            </div>
+          </div>
+
+          {/* Sampling Interval */}
+          <div>
+            <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+              <span>Sampling Step</span>
+              <span className="font-mono text-emerald-400 font-semibold">{stepMiles} miles</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[10, 25, 50].map((interval) => (
+                <button
+                  key={interval}
+                  type="button"
+                  onClick={() => setStepMiles(interval)}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium border transition ${
+                    stepMiles === interval
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/60 font-semibold"
+                      : "bg-slate-800/80 text-slate-400 border-slate-700/70 hover:text-white"
+                  }`}
+                >
+                  {interval} mi
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Advanced toggle */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="text-[11px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition"
+            >
+              <span>ORS API Key</span>
+              {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+            {showAdvanced && (
+              <div className="mt-1.5">
+                <input
+                  type="password"
+                  value={orsApiKey}
+                  onChange={(e) => setOrsApiKey(e.target.value)}
+                  placeholder="Optional: ORS key in .env is already loaded"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Action button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 disabled:opacity-50"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Evaluating 3 Routes...</span>
+              </>
+            ) : (
+              <>
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Evaluate 3 Routes</span>
+              </>
+            )}
+          </button>
+        </form>
+      )}
+
+      {isCollapsed && (
+        <div className="flex items-center justify-between pt-1">
+          <div className="text-xs text-slate-300 truncate font-medium">
+            {origin} → {destination} ({loadWeight} lbs)
+          </div>
+          <button
+            onClick={() => setIsCollapsed(false)}
+            className="text-xs text-emerald-400 font-semibold hover:underline"
+          >
+            Edit
+          </button>
+        </div>
+      )}
     </div>
   );
 };
-

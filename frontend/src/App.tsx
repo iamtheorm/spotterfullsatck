@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Header } from "./components/Header";
 import { InputPanel } from "./components/InputPanel";
 import { RouteCard } from "./components/RouteCard";
@@ -14,7 +14,7 @@ import {
   CorridorData,
 } from "./types";
 import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
-import { AlertCircle, CheckCircle2, ShieldCheck, MapPin } from "lucide-react";
+import { AlertCircle, TableProperties } from "lucide-react";
 
 export function App() {
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
@@ -28,6 +28,7 @@ export function App() {
   const [selectedRouteName, setSelectedRouteName] = useState<string>("");
 
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
 
   // Corridor slider state
   const [forecastHour, setForecastHour] = useState<number>(0);
@@ -58,7 +59,6 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       if (data.routes && data.routes.length > 0) {
-        // Default to the top recommended route
         const recommended =
           data.routes.find((r) => r.is_recommended) || data.routes[0];
         setSelectedRouteId(recommended.id);
@@ -97,7 +97,7 @@ export function App() {
     });
   };
 
-  // Initial evaluation on mount so app opens with interactive data
+  // Initial evaluation on mount
   useEffect(() => {
     const initialDep = new Date();
     initialDep.setDate(initialDep.getDate() + 1);
@@ -112,7 +112,7 @@ export function App() {
     });
   }, []);
 
-  // Update corridor grid when forecastHour changes (debounced for smooth sliding)
+  // Update corridor grid when forecastHour changes
   useEffect(() => {
     if (!evaluation || !evaluation.routes || evaluation.routes.length === 0)
       return;
@@ -150,99 +150,102 @@ export function App() {
     };
   }, [forecastHour, evaluation]);
 
-  const activeRoute =
-    evaluation?.routes.find((r) => r.id === selectedRouteId) ||
-    evaluation?.routes[0];
-
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans text-slate-100">
+    <div className="h-screen w-screen flex flex-col bg-slate-950 font-sans text-slate-100 overflow-hidden">
+      {/* Top App Header */}
       <Header
         onOpenRules={() => setIsRulesOpen(true)}
         onSelectPreset={handleSelectPreset}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
-        {/* Error Notification */}
-        {error && (
-          <div className="p-4 rounded-xl bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between shadow-lg">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-400 hover:text-white underline text-[11px]"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Top Grid: Controls + Interactive Map */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column: Form & Route Cards (5 cols) */}
-          <div className="lg:col-span-5 space-y-5">
-            <InputPanel
-              onEvaluate={handleEvaluate}
-              isLoading={isLoading}
-              initialValues={formInputs}
-            />
-
-            {/* Evaluated Route Cards */}
-            {evaluation && evaluation.routes && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                    Route Alternatives ({evaluation.routes.length})
-                  </h3>
-                  <span className="text-[11px] text-emerald-400 font-medium">
-                    Sorted by safety rank
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {evaluation.routes.map((route) => (
-                    <RouteCard
-                      key={route.id}
-                      route={route}
-                      isSelected={route.id === selectedRouteId}
-                      onSelect={() => {
-                        setSelectedRouteId(route.id);
-                        setSelectedRouteName(route.name);
-                      }}
-                    />
-                  ))}
-                </div>
+      {/* Main Two-Panel Layout: Sidebar + Full Map */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* Left Sidebar: Controls & Route Alternatives (Independent Scroll) */}
+        <aside className="w-full md:w-[380px] lg:w-[410px] shrink-0 border-r border-slate-800 bg-slate-950 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10">
+          {/* Error Banner */}
+          {error && (
+            <div className="p-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <span>{error}</span>
               </div>
-            )}
+              <button
+                onClick={() => setError(null)}
+                className="text-red-400 hover:text-white underline text-[10px]"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Trip Dispatch Parameters Form */}
+          <InputPanel
+            onEvaluate={handleEvaluate}
+            isLoading={isLoading}
+            initialValues={formInputs}
+          />
+
+          {/* Route Alternatives List */}
+          {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Alternative Routes ({evaluation.routes.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsComparisonOpen(true)}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition"
+                >
+                  <TableProperties className="w-3.5 h-3.5" />
+                  <span>Compare</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {evaluation.routes.map((route) => (
+                  <RouteCard
+                    key={route.id}
+                    route={route}
+                    isSelected={route.id === selectedRouteId}
+                    onSelect={() => {
+                      setSelectedRouteId(route.id);
+                      setSelectedRouteName(route.name);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+
+        {/* Right Main Panel: Pinned Interactive Map & Docked Timeline Slider */}
+        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+          {/* Leaflet Map (Takes All Available Space) */}
+          <div className="flex-1 relative w-full h-full">
+            <MapView
+              routes={evaluation?.routes || []}
+              selectedRouteId={selectedRouteId}
+              onSelectRoute={(id) => {
+                setSelectedRouteId(id);
+                const r = evaluation?.routes.find((item) => item.id === id);
+                if (r) setSelectedRouteName(r.name);
+              }}
+              onSelectCheckpoint={(cp) => {
+                setSelectedCheckpoint(cp);
+              }}
+              onOpenModal={(cp, rName) => {
+                setSelectedCheckpoint(cp);
+                setSelectedRouteName(rName);
+              }}
+              corridorData={corridorData}
+              showHeatmap={showHeatmap}
+              selectedCheckpoint={selectedCheckpoint}
+            />
           </div>
 
-          {/* Right Column: Map & Forecast Slider (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            {/* Map Container */}
-            <div className="h-[520px] w-full relative">
-              <MapView
-                routes={evaluation?.routes || []}
-                selectedRouteId={selectedRouteId}
-                onSelectRoute={(id) => {
-                  setSelectedRouteId(id);
-                  const r = evaluation?.routes.find((item) => item.id === id);
-                  if (r) setSelectedRouteName(r.name);
-                }}
-                onSelectCheckpoint={(cp) => {
-                  setSelectedCheckpoint(cp);
-                }}
-                onOpenModal={(cp, rName) => {
-                  setSelectedCheckpoint(cp);
-                  setSelectedRouteName(rName);
-                }}
-                corridorData={corridorData}
-                showHeatmap={showHeatmap}
-                selectedCheckpoint={selectedCheckpoint}
-              />
-            </div>
-
-            {/* 0-48 Hour Forecast Evolution Slider */}
+          {/* Docked Forecast Slider at Bottom of Map */}
+          <div className="p-3 bg-slate-950 border-t border-slate-800">
             <ForecastSlider
               forecastHour={forecastHour}
               onHourChange={setForecastHour}
@@ -252,21 +255,8 @@ export function App() {
               isLoadingCorridor={isLoadingCorridor}
             />
           </div>
-        </div>
-
-        {/* Bottom Section: Side-by-side Decision Matrix & Comparison */}
-        {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
-          <RouteComparison
-            routes={evaluation.routes}
-            selectedRouteId={selectedRouteId}
-            onSelectRoute={(id) => {
-              setSelectedRouteId(id);
-              const r = evaluation.routes.find((item) => item.id === id);
-              if (r) setSelectedRouteName(r.name);
-            }}
-          />
-        )}
-      </main>
+        </main>
+      </div>
 
       {/* Checkpoint Detail Telemetry Modal */}
       <CheckpointModal
@@ -275,17 +265,25 @@ export function App() {
         routeName={selectedRouteName}
       />
 
-      {/* Risk & Load Rules Documentation Drawer */}
+      {/* Risk & Load Rules Guide Drawer */}
       <RiskRulesDrawer
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
       />
 
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-        <p>Weather-Aware Truck Routing Engine • Django REST Framework + React + Leaflet + Open-Meteo</p>
-      </footer>
+      {/* Side-by-side Decision Matrix Modal */}
+      <RouteComparison
+        routes={evaluation?.routes || []}
+        selectedRouteId={selectedRouteId}
+        onSelectRoute={(id) => {
+          setSelectedRouteId(id);
+          const r = evaluation?.routes.find((item) => item.id === id);
+          if (r) setSelectedRouteName(r.name);
+        }}
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
+      />
     </div>
   );
 }
 export default App;
-
