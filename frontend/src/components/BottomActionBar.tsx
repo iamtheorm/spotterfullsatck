@@ -20,11 +20,11 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
     <div className="w-full bg-white border-t border-slate-200/90 px-6 py-2.5 flex items-center justify-between shadow-lg z-30 select-none">
       {/* Left: Thumbnail of Semi-Truck on Highway */}
       <div className="flex items-center space-x-3">
-        <div className="w-20 h-10 rounded-xl overflow-hidden shadow-xs border border-slate-200 relative group hidden sm:block">
+        <div className="w-24 h-12 rounded-xl overflow-hidden shadow-xs border border-slate-200/80 relative group hidden sm:block">
           <img
-            src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=300&q=80"
+            src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=400&q=80"
             alt="Truck"
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition"
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition duration-300"
           />
         </div>
       </div>
@@ -32,15 +32,15 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
       {/* Center: Total ETA, Total Distance, Avg Risk */}
       <div className="flex items-center space-x-6 md:space-x-12">
         {/* Total ETA */}
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-full bg-blue-50/80 border border-blue-100 flex items-center justify-center text-[#0284c7]">
             <Clock className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm md:text-base font-extrabold text-slate-900 font-mono">
+            <div className="text-sm md:text-base font-black text-slate-900 font-mono tracking-tight">
               {hours}h {minutes}m
             </div>
-            <div className="text-[10px] text-slate-400 font-medium">Total ETA</div>
+            <div className="text-[10px] text-slate-400 font-semibold">Total ETA</div>
           </div>
         </div>
 
@@ -48,15 +48,15 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
         <div className="h-7 w-[1px] bg-slate-200 hidden md:block"></div>
 
         {/* Total Distance */}
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-sky-50 flex items-center justify-center text-sky-600">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-800">
             <Navigation className="w-4 h-4 rotate-45" />
           </div>
           <div>
-            <div className="text-sm md:text-base font-extrabold text-slate-900 font-mono">
+            <div className="text-sm md:text-base font-black text-slate-900 font-mono tracking-tight">
               {route.distance_miles} mi
             </div>
-            <div className="text-[10px] text-slate-400 font-medium">Total Distance</div>
+            <div className="text-[10px] text-slate-400 font-semibold">Total Distance</div>
           </div>
         </div>
 
@@ -64,32 +64,32 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
         <div className="h-7 w-[1px] bg-slate-200 hidden md:block"></div>
 
         {/* Avg Risk */}
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-full bg-orange-50 border border-orange-100 flex items-center justify-center text-orange-600">
             <Shield className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-sm md:text-base font-extrabold text-slate-900 font-mono">
+            <div className="text-sm md:text-base font-black text-slate-900 font-mono tracking-tight">
               {route.summary?.average_risk?.toFixed(1) || "1.0"} / 5
             </div>
-            <div className="text-[10px] text-slate-400 font-medium">Avg Risk</div>
+            <div className="text-[10px] text-slate-400 font-semibold">Avg Risk</div>
           </div>
         </div>
       </div>
 
-      {/* Right: Proceed with Route Button matching screenshot */}
+      {/* Right: Orange Curved Swoosh + Dark Navy "Proceed with Route →" Button */}
       <div className="flex items-center space-x-3">
-        {/* Subtle orange/navy flourish curve */}
+        {/* Artistic orange/amber curved swoosh stroke */}
         <svg
-          className="w-16 h-8 text-amber-500 hidden lg:block"
+          className="w-20 h-10 text-amber-500 hidden lg:block overflow-visible"
           viewBox="0 0 100 40"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
-            d="M5 35C40 35 60 5 95 5"
-            stroke="currentColor"
-            strokeWidth="4"
+            d="M5 36C45 36 65 6 95 6"
+            stroke="#f59e0b"
+            strokeWidth="5"
             strokeLinecap="round"
           />
         </svg>
@@ -97,7 +97,7 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
         <button
           type="button"
           onClick={onProceed}
-          className="py-2.5 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs md:text-sm flex items-center space-x-2 shadow-md transition hover:shadow-lg active:scale-95"
+          className="py-3 px-6 rounded-2xl bg-[#101c38] hover:bg-[#0c162c] text-white font-bold text-xs md:text-sm flex items-center space-x-2.5 shadow-md transition hover:shadow-lg active:scale-95"
         >
           <span>Proceed with Route</span>
           <ArrowRight className="w-4 h-4 text-sky-400" />
@@ -106,4 +106,3 @@ export const BottomActionBar: React.FC<BottomActionBarProps> = ({
     </div>
   );
 };
-

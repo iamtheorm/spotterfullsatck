@@ -1,132 +1,112 @@
 import React from "react";
-import { Bell, Shield } from "lucide-react";
+import { Bell, Truck } from "lucide-react";
 
 interface HeaderProps {
-  onOpenRules: () => void;
-  onSelectPreset: (origin: string, dest: string, weight: number) => void;
+  onOpenRules?: () => void;
+  onSelectPreset?: (origin: string, dest: string, weight: number) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
-  onOpenRules,
-  onSelectPreset,
-}) => {
+export const Header: React.FC<HeaderProps> = ({ onOpenRules, onSelectPreset }) => {
   return (
-    <header className="bg-white border-b border-slate-200/90 relative z-30 select-none shadow-2xs">
-      {/* Top Window Bar (macOS Chrome-like aesthetic from screenshot) */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-slate-100/90 border-b border-slate-200/60 text-xs">
+    <header className="bg-white border-b border-slate-200/80 relative z-30 select-none">
+      {/* Top Browser / macOS Window Tab Bar */}
+      <div className="flex items-center justify-between px-4 py-1.5 bg-[#edf1f7] border-b border-slate-200/70 text-xs">
         <div className="flex items-center space-x-2">
-          {/* Window control dots */}
+          {/* macOS window control dots */}
           <div className="flex items-center space-x-1.5 mr-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-400"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d89e24]"></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]"></span>
           </div>
 
-          {/* Active Window Tab */}
-          <div className="flex items-center space-x-2 px-3 py-1 bg-white rounded-t-lg border-t border-x border-slate-200 shadow-2xs text-slate-800 font-medium text-[11px]">
-            <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+          {/* Active Browser Tab */}
+          <div className="flex items-center space-x-2 px-3.5 py-1 bg-white rounded-t-lg border-t border-x border-slate-200/90 shadow-2xs text-slate-800 font-semibold text-[11px]">
+            <Truck className="w-3.5 h-3.5 text-slate-800" />
             <span>Weather-Aware Truck Routing</span>
-            <span className="text-slate-400 font-bold ml-1 hover:text-slate-700 cursor-pointer">+</span>
+            <span className="text-slate-400 font-bold ml-1.5 hover:text-slate-700 cursor-pointer text-xs">+</span>
           </div>
-        </div>
-
-        {/* Quick Presets & Rules in Top Bar */}
-        <div className="flex items-center space-x-2">
-          <span className="text-[11px] text-slate-500 font-medium hidden md:inline">Presets:</span>
-          <button
-            type="button"
-            onClick={() => onSelectPreset("Chicago, IL", "Dallas, TX", 34000)}
-            className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 rounded text-[11px] font-medium border border-slate-200 transition"
-          >
-            Midwest
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectPreset("Delhi, India", "Kanpur, India", 34000)}
-            className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 rounded text-[11px] font-medium border border-slate-200 transition"
-          >
-            Delhi → Kanpur
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectPreset("Delhi, India", "Lucknow, India", 34000)}
-            className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 rounded text-[11px] font-medium border border-slate-200 transition"
-          >
-            Delhi → Lucknow
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectPreset("Atlanta, GA", "Miami, FL", 28000)}
-            className="px-2 py-0.5 bg-white hover:bg-slate-50 text-slate-700 rounded text-[11px] font-medium border border-slate-200 transition"
-          >
-            Southeast
-          </button>
-          <button
-            type="button"
-            onClick={onOpenRules}
-            className="inline-flex items-center space-x-1 px-2 py-0.5 bg-slate-900 text-white rounded text-[11px] font-medium transition hover:bg-slate-800 ml-1"
-          >
-            <Shield className="w-3 h-3 text-amber-400" />
-            <span>Rules</span>
-          </button>
         </div>
       </div>
 
-      {/* Main Banner Header matching screenshot */}
-      <div className="relative h-20 md:h-24 px-6 flex items-center justify-between overflow-hidden bg-gradient-to-r from-white via-sky-50/20 to-transparent">
-        {/* Left Side: Brand Title & Tagline with brush curve underline */}
-        <div className="z-10 py-2">
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            Weather-Aware Truck Routing
-          </h1>
-          <div className="relative inline-block mt-0.5">
-            <p className="text-xs md:text-sm font-medium text-slate-600">
-              Plan smarter. Deliver safer.
-            </p>
-            {/* Orange curve brush stroke accent under "safer" */}
+      {/* Main Header Banner */}
+      <div className="relative h-20 md:h-22 px-6 flex items-center justify-between overflow-hidden bg-white">
+        {/* Left Side: Truck Logo + Title + "Plan smarter. Deliver safer." with orange brush stroke */}
+        <div className="flex items-center space-x-4 z-10 py-2">
+          {/* Modern vector truck silhouette logo */}
+          <div className="w-12 h-10 flex items-center justify-center text-slate-900">
             <svg
-              className="absolute -bottom-1.5 right-0 w-24 h-2 text-amber-500 overflow-visible"
-              viewBox="0 0 100 10"
-              fill="none"
+              className="w-11 h-9 text-[#1e293b]"
+              viewBox="0 0 48 36"
+              fill="currentColor"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path
-                d="M2 7C30 2 70 3 98 6"
-                stroke="currentColor"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-              />
+              {/* Truck Cabin & Trailer Silhouette */}
+              <path d="M4 10C4 8.89543 4.89543 8 6 8H26C27.1046 8 28 8.89543 28 10V26H4V10Z" />
+              <path d="M29 14H35.5C36.2956 14 37.0587 14.3161 37.6213 14.8787L43.1213 20.3787C43.6839 20.9413 44 21.7044 44 22.5V26H29V14Z" />
+              <circle cx="12" cy="27" r="4" fill="#0f172a" />
+              <circle cx="12" cy="27" r="1.8" fill="#ffffff" />
+              <circle cx="36" cy="27" r="4" fill="#0f172a" />
+              <circle cx="36" cy="27" r="1.8" fill="#ffffff" />
+              {/* Speed motion lines */}
+              <rect x="0" y="12" width="2.5" height="1.5" rx="0.75" />
+              <rect x="0" y="16" width="3" height="1.5" rx="0.75" />
+              <rect x="0" y="20" width="2" height="1.5" rx="0.75" />
             </svg>
+          </div>
+
+          <div>
+            <h1 className="text-xl md:text-[22px] font-black text-slate-900 tracking-tight font-sans">
+              Weather-Aware Truck Routing
+            </h1>
+            <div className="relative inline-block mt-0.5">
+              <p className="text-xs md:text-sm font-medium text-slate-600">
+                Plan smarter. Deliver safer.
+              </p>
+              {/* Orange brush curved underline under "safer" */}
+              <svg
+                className="absolute -bottom-1.5 right-0 w-28 h-2.5 text-amber-500 overflow-visible"
+                viewBox="0 0 110 12"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 8C35 2 75 3 108 7"
+                  stroke="#f59e0b"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
-        {/* Right Side: Panoramic Semi-Truck Highway Photo + Bell + Avatar */}
-        <div className="absolute top-0 right-0 h-full w-2/3 md:w-1/2 flex items-center justify-end pointer-events-none">
-          {/* Panoramic truck background image with soft fade on left */}
+        {/* Right Side: Panoramic Truck on Highway + Notification Bell + Profile Avatar */}
+        <div className="absolute top-0 right-0 h-full w-3/5 md:w-1/2 flex items-center justify-end pointer-events-none">
+          {/* Panoramic truck background photo with soft linear gradient fade */}
           <div
-            className="absolute inset-0 bg-cover bg-right"
+            className="absolute inset-0 bg-cover bg-center"
             style={{
               backgroundImage:
                 "url('https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=1200&q=80')",
-              maskImage: "linear-gradient(to right, transparent 0%, black 40%)",
-              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 40%)",
+              maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 15%, black 45%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 15%, black 45%)",
             }}
           />
 
           {/* User controls on top right */}
-          <div className="relative z-20 flex items-center space-x-3 mr-6 pointer-events-auto">
-            {/* Notification Bell with red badge */}
+          <div className="relative z-20 flex items-center space-x-3.5 mr-6 pointer-events-auto">
+            {/* Notification Bell with red badge dot */}
             <button
               type="button"
-              className="relative p-2 rounded-full bg-white/90 hover:bg-white text-slate-700 shadow-sm border border-slate-200 transition backdrop-blur-xs"
+              className="relative p-2.5 rounded-full bg-white/95 hover:bg-white text-slate-700 shadow-md border border-slate-200/80 transition backdrop-blur-xs hover:scale-105 active:scale-95"
               title="Notifications"
             >
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+              <Bell className="w-4 h-4 text-slate-700" />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
             </button>
 
             {/* Profile Avatar "R" */}
-            <div className="w-9 h-9 rounded-full bg-slate-900 border-2 border-white text-white font-bold text-sm flex items-center justify-center shadow-md">
+            <div className="w-9 h-9 rounded-full bg-[#101c38] border-2 border-white text-white font-bold text-sm flex items-center justify-center shadow-md">
               R
             </div>
           </div>

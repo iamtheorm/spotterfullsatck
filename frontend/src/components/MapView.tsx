@@ -42,22 +42,32 @@ interface MapViewProps {
   selectedCheckpoint?: Checkpoint | null;
 }
 
-// Custom DivIcon for Origin and Destination Pins matching screenshot
-const createNamedMarkerIcon = (label: string, isOrigin: boolean) => {
+// Named Marker Pin Icon matching screenshot (e.g. green circle Chicago, red pin Dallas)
+const createOriginMarker = (cityName: string) => {
   return L.divIcon({
-    className: "custom-named-marker",
+    className: "custom-origin-marker",
     html: `
-      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid ${
-        isOrigin ? "#10b981" : "#ef4444"
-      }; font-weight: 700; font-size: 11px; color: #0f172a; white-space: nowrap;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${
-          isOrigin ? "#10b981" : "#ef4444"
-        }; display: inline-block;"></span>
-        <span>${label}</span>
+      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); border: 2px solid #16a34a; font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block;"></span>
+        <span>${cityName}</span>
       </div>
     `,
-    iconSize: [100, 30],
-    iconAnchor: [50, 15],
+    iconSize: [90, 28],
+    iconAnchor: [45, 14],
+  });
+};
+
+const createDestinationMarker = (cityName: string) => {
+  return L.divIcon({
+    className: "custom-dest-marker",
+    html: `
+      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); border: 2px solid #ef4444; font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+        <span>${cityName}</span>
+      </div>
+    `,
+    iconSize: [90, 28],
+    iconAnchor: [45, 14],
   });
 };
 
@@ -125,22 +135,22 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, onHourChange]);
 
-  // Extract start and end city labels
+  // Extract start and end city coordinates
   const startCoords = selectedRoute?.coordinates?.[0];
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
 
   const hasSevereWeather = selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
 
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-sm">
+    <div className="relative w-full h-full rounded-2xl md:rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-xs">
       {/* 1. TOP FLOATING HUD BAR matching screenshot */}
-      <div className="absolute top-3 left-3 right-3 z-[400] flex items-center justify-between pointer-events-none">
-        {/* Left Side: Map View (active navy) | Risk Overlay | Weather Layer */}
+      <div className="absolute top-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between pointer-events-none">
+        {/* Left Side: Map View (navy) | Risk Overlay | Weather Layer ⌄ */}
         <div className="flex items-center space-x-2 pointer-events-auto bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-sm">
           {/* Map View Pill */}
           <button
             type="button"
-            className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+            className="px-3.5 py-1.5 rounded-xl bg-[#101c38] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs"
           >
             <Map className="w-3.5 h-3.5 text-sky-400" />
             <span>Map View</span>
@@ -152,8 +162,8 @@ export const MapView: React.FC<MapViewProps> = ({
             onClick={onToggleHeatmap}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
               showHeatmap
-                ? "bg-blue-50 text-blue-700 border border-blue-200"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                ? "bg-slate-100 text-slate-900 border border-slate-300"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -184,7 +194,7 @@ export const MapView: React.FC<MapViewProps> = ({
                     !isSatellite ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-700 hover:bg-slate-50"
                   }`}
                 >
-                  Positron Light Map
+                  Positron Terrain Map
                 </button>
                 <button
                   type="button"
@@ -203,42 +213,42 @@ export const MapView: React.FC<MapViewProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Risk Legend matching screenshot */}
-        <div className="hidden sm:flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-medium text-slate-700">
-          <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            <span className="text-[11px] font-semibold text-slate-600">Low</span>
+        {/* Right Side: Risk Legend with colored dots matching screenshot */}
+        <div className="hidden sm:flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-medium text-slate-700">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Low</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-            <span className="text-[11px] font-semibold text-slate-600">Mod</span>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Mod</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
-            <span className="text-[11px] font-semibold text-slate-600">High</span>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">High</span>
           </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-            <span className="text-[11px] font-semibold text-slate-600">Severe</span>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Severe</span>
           </div>
         </div>
       </div>
 
-      {/* Recenter Crosshair Button on Top-Left below Leaflet Zoom */}
-      <div className="absolute top-28 left-3 z-[400] pointer-events-auto">
+      {/* Recenter Crosshair Button */}
+      <div className="absolute top-24 left-3.5 z-[400] pointer-events-auto">
         <button
           type="button"
           onClick={() => setRecenterCount((c) => c + 1)}
           title="Center on Route"
-          className="w-8 h-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 transition"
+          className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-700 transition"
         >
           <Crosshair className="w-4 h-4" />
         </button>
       </div>
 
       {/* 2. FLOATING BOTTOM-LEFT WEATHER ALERT CARD matching screenshot */}
-      <div className="absolute bottom-20 left-4 z-[400] pointer-events-auto max-w-sm">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-3 shadow-lg flex items-center space-x-3">
+      <div className="absolute bottom-16 left-4 z-[400] pointer-events-auto max-w-sm">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 shadow-md flex items-center space-x-3">
           <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
             <AlertTriangle className="w-4 h-4 text-red-500" />
           </div>
@@ -246,10 +256,10 @@ export const MapView: React.FC<MapViewProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-slate-900">Weather Alert</span>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-500 font-medium">
               {hasSevereWeather
-                ? "Severe weather or high winds along your route"
-                : "Active corridor weather monitoring enabled"}
+                ? "Severe weather along your route"
+                : "Corridor atmospheric risk monitored"}
             </p>
           </div>
           {onOpenRules && (
@@ -262,6 +272,18 @@ export const MapView: React.FC<MapViewProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Layer switch button on bottom-right */}
+      <div className="absolute bottom-16 right-4 z-[400] pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => setIsSatellite(!isSatellite)}
+          title="Toggle Satellite Base"
+          className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-700 transition"
+        >
+          <Layers className="w-4 h-4" />
+        </button>
       </div>
 
       {/* 3. LEAFLET MAP CANVAS */}
@@ -279,7 +301,7 @@ export const MapView: React.FC<MapViewProps> = ({
             triggerCenter={recenterCount}
           />
 
-          {/* Positron Clean Desaturated Light Map Tiles */}
+          {/* Positron Clean Soft Terrain Tiles */}
           {!isSatellite ? (
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -294,7 +316,7 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           )}
 
-          {/* 4. WEATHER CORRIDOR HEATMAP LAYER */}
+          {/* 4. WEATHER CORRIDOR THERMAL HEATMAP OVERLAY */}
           {showHeatmap && corridorData && corridorData.points && (
             <>
               {corridorData.points.map((pt, idx) => {
@@ -306,18 +328,18 @@ export const MapView: React.FC<MapViewProps> = ({
                     : pt.risk_level === "High"
                     ? "#f97316"
                     : pt.risk_level === "Moderate"
-                    ? "#facc15"
-                    : "#10b981";
+                    ? "#eab308"
+                    : "#22c55e";
 
                 return (
                   <CircleMarker
                     key={`corridor-pt-${idx}`}
                     center={[pt.lat, pt.lon]}
-                    radius={14}
+                    radius={16}
                     pathOptions={{
                       color: color,
                       fillColor: color,
-                      fillOpacity: 0.22,
+                      fillOpacity: 0.28,
                       weight: 0,
                     }}
                   />
@@ -338,7 +360,7 @@ export const MapView: React.FC<MapViewProps> = ({
                   pathOptions={{
                     color: "#94a3b8",
                     weight: 3,
-                    opacity: 0.45,
+                    opacity: 0.4,
                     dashArray: "6, 8",
                   }}
                   eventHandlers={{
@@ -348,46 +370,46 @@ export const MapView: React.FC<MapViewProps> = ({
               );
             })}
 
-          {/* 6. ACTIVE ROUTE POLYLINE: Glowing Emerald / Navy Focus Path */}
+          {/* 6. ACTIVE ROUTE POLYLINE: Glowing Emerald Highway Focus Path */}
           {selectedRoute && (
             <>
               {/* Outer Glow Halo */}
               <Polyline
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
-                  color: selectedRoute.is_recommended ? "#10b981" : "#3b82f6",
-                  weight: 8,
-                  opacity: 0.28,
+                  color: "#22c55e",
+                  weight: 9,
+                  opacity: 0.3,
                 }}
               />
-              {/* Solid High-Visibility Path */}
+              {/* Solid High-Visibility Path with Dashed Pattern matching screenshot */}
               <Polyline
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
-                  color: selectedRoute.is_recommended ? "#059669" : "#2563eb",
+                  color: "#16a34a",
                   weight: 4.5,
                   opacity: 0.95,
-                  dashArray: "2, 4",
+                  dashArray: "3, 5",
                 }}
               />
             </>
           )}
 
-          {/* 7. ORIGIN & DESTINATION LABELED MARKERS */}
+          {/* 7. ORIGIN & DESTINATION LABELED MARKERS matching screenshot */}
           {startCoords && (
             <Marker
               position={[startCoords[1], startCoords[0]]}
-              icon={createNamedMarkerIcon("Origin", true)}
+              icon={createOriginMarker("Chicago")}
             />
           )}
           {endCoords && (
             <Marker
               position={[endCoords[1], endCoords[0]]}
-              icon={createNamedMarkerIcon("Destination", false)}
+              icon={createDestinationMarker("Dallas")}
             />
           )}
 
-          {/* 8. CHECKPOINT DOTS: Single Focused Chain on Active Route Only */}
+          {/* 8. CHECKPOINT DOTS on Active Route */}
           {selectedRoute &&
             selectedRoute.checkpoints &&
             selectedRoute.checkpoints.map((cp) => {
@@ -400,19 +422,19 @@ export const MapView: React.FC<MapViewProps> = ({
                   : cp.final_level === "High"
                   ? "#f97316"
                   : cp.final_level === "Moderate"
-                  ? "#facc15"
-                  : "#10b981";
+                  ? "#eab308"
+                  : "#22c55e";
 
               return (
                 <CircleMarker
                   key={`active-cp-${cp.index}`}
                   center={[cp.lat, cp.lon]}
-                  radius={isSelected ? 7 : 5}
+                  radius={isSelected ? 7 : 4.5}
                   pathOptions={{
                     color: isSelected ? "#0f172a" : "#ffffff",
                     fillColor: color,
                     fillOpacity: 1.0,
-                    weight: isSelected ? 3 : 1.8,
+                    weight: isSelected ? 3 : 1.5,
                   }}
                   eventHandlers={{
                     click: () => onOpenModal(cp, selectedRoute.name),
@@ -446,12 +468,12 @@ export const MapView: React.FC<MapViewProps> = ({
       </div>
 
       {/* 9. BOTTOM SCRUBBER OVERLAY: 0–48 Hour Evolution Timeline */}
-      <div className="absolute bottom-3 left-4 right-4 z-[400] flex justify-center pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2 shadow-lg flex items-center space-x-3 pointer-events-auto max-w-xl w-full">
+      <div className="absolute bottom-2 left-4 right-4 z-[400] flex justify-center pointer-events-none">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-1.5 shadow-md flex items-center space-x-3 pointer-events-auto max-w-lg w-full">
           <button
             type="button"
             onClick={() => setIsPlaying(!isPlaying)}
-            className="p-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg bg-[#101c38] text-white hover:bg-slate-800 transition"
             title={isPlaying ? "Pause" : "Play Timeline"}
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -471,13 +493,13 @@ export const MapView: React.FC<MapViewProps> = ({
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          <div className="flex-1 flex flex-col space-y-1">
+          <div className="flex-1 flex flex-col space-y-0.5">
             <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-sky-500" />
-                Corridor Forecast Evolution:
+                Forecast Evolution:
               </span>
-              <span className="font-mono text-blue-600">+{forecastHour}h Offset</span>
+              <span className="font-mono text-blue-600">+{forecastHour}h</span>
             </div>
             <input
               type="range"
