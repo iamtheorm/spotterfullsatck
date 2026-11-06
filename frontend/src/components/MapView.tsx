@@ -11,10 +11,8 @@ import {
 import L from "leaflet";
 import { RouteOption, Checkpoint, CorridorData } from "../types";
 import {
-  Wind,
-  CloudRain,
   AlertTriangle,
-  Map,
+  Map as MapIcon,
   Layers,
   CloudSun,
   ChevronDown,
@@ -46,13 +44,13 @@ const createOriginMarker = (cityName: string) => {
   return L.divIcon({
     className: "custom-origin-marker",
     html: `
-      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); border: 2px solid #16a34a; font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #16a34a; display: inline-block;"></span>
+      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 5px 12px; border-radius: 9999px; box-shadow: 0 4px 14px rgba(0,0,0,0.22); border: 2px solid #16a34a; font-weight: 800; font-size: 12px; color: #0f172a; white-space: nowrap;">
+        <span style="width: 9px; height: 9px; border-radius: 50%; background: #16a34a; display: inline-block;"></span>
         <span>${cityName}</span>
       </div>
     `,
-    iconSize: [90, 28],
-    iconAnchor: [45, 14],
+    iconSize: [95, 30],
+    iconAnchor: [47, 15],
   });
 };
 
@@ -60,13 +58,13 @@ const createDestinationMarker = (cityName: string) => {
   return L.divIcon({
     className: "custom-dest-marker",
     html: `
-      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); border: 2px solid #ef4444; font-weight: 800; font-size: 11px; color: #0f172a; white-space: nowrap;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
+      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 5px 12px; border-radius: 9999px; box-shadow: 0 4px 14px rgba(0,0,0,0.22); border: 2px solid #ef4444; font-weight: 800; font-size: 12px; color: #0f172a; white-space: nowrap;">
+        <span style="width: 9px; height: 9px; border-radius: 50%; background: #ef4444; display: inline-block;"></span>
         <span>${cityName}</span>
       </div>
     `,
-    iconSize: [90, 28],
-    iconAnchor: [45, 14],
+    iconSize: [95, 30],
+    iconAnchor: [47, 15],
   });
 };
 
@@ -94,36 +92,16 @@ const MapBoundsAdjuster: React.FC<{
 };
 
 // External custom map zoom controls inside Leaflet context
-const MapControls: React.FC<{ onRecenter: () => void }> = ({ onRecenter }) => {
+const MapZoomController: React.FC<{
+  onZoomIn: (fn: () => void) => void;
+  onZoomOut: (fn: () => void) => void;
+}> = ({ onZoomIn, onZoomOut }) => {
   const map = useMap();
-  return (
-    <div className="absolute top-20 left-4 z-[400] flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-md overflow-hidden pointer-events-auto">
-      <button
-        type="button"
-        onClick={() => map.zoomIn()}
-        className="p-2 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
-        title="Zoom In"
-      >
-        <Plus className="w-4 h-4" />
-      </button>
-      <button
-        type="button"
-        onClick={() => map.zoomOut()}
-        className="p-2 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
-        title="Zoom Out"
-      >
-        <Minus className="w-4 h-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onRecenter}
-        className="p-2 hover:bg-slate-100 text-slate-700 transition"
-        title="Center on Route"
-      >
-        <Crosshair className="w-4 h-4" />
-      </button>
-    </div>
-  );
+  useEffect(() => {
+    onZoomIn(() => map.zoomIn());
+    onZoomOut(() => map.zoomOut());
+  }, [map, onZoomIn, onZoomOut]);
+  return null;
 };
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -136,9 +114,6 @@ export const MapView: React.FC<MapViewProps> = ({
   corridorData,
   showHeatmap,
   onToggleHeatmap,
-  forecastHour,
-  onHourChange,
-  isLoadingCorridor,
   selectedCheckpoint,
   originName = "Chicago",
   destinationName = "Dallas",
@@ -146,6 +121,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const [isSatellite, setIsSatellite] = useState(false);
   const [recenterCount, setRecenterCount] = useState(0);
   const [isWeatherDropdownOpen, setIsWeatherDropdownOpen] = useState(false);
+
+  const zoomInRef = React.useRef<() => void>(() => {});
+  const zoomOutRef = React.useRef<() => void>(() => {});
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
 
@@ -158,128 +136,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const hasSevereWeather = selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
 
   return (
-    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-xs">
-      {/* 1. TOP FLOATING CONTROLS matching screenshot */}
-      <div className="absolute top-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between pointer-events-none">
-        {/* Left Side: Risk Legend matching screenshot */}
-        <div className="flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-semibold text-slate-700">
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Low</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Mod</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">High</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Severe</span>
-          </div>
-        </div>
-
-        {/* Right Side: Map View (navy) | Risk Overlay | Weather Layer ⌄ */}
-        <div className="flex items-center space-x-2 pointer-events-auto bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-sm">
-          {/* Map View Pill */}
-          <button
-            type="button"
-            className="px-3.5 py-1.5 rounded-xl bg-[#101c38] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs"
-          >
-            <Map className="w-3.5 h-3.5 text-sky-400" />
-            <span>Map View</span>
-          </button>
-
-          {/* Risk Overlay Pill */}
-          <button
-            type="button"
-            onClick={onToggleHeatmap}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
-              showHeatmap
-                ? "bg-slate-100 text-slate-900 border border-slate-300"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Risk Overlay</span>
-          </button>
-
-          {/* Weather Layer Dropdown */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsWeatherDropdownOpen(!isWeatherDropdownOpen)}
-              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5"
-            >
-              <CloudSun className="w-3.5 h-3.5 text-amber-500" />
-              <span>Weather Layer</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
-
-            {isWeatherDropdownOpen && (
-              <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSatellite(false);
-                    setIsWeatherDropdownOpen(false);
-                  }}
-                  className={`w-full px-3 py-1.5 text-left text-xs font-medium ${
-                    !isSatellite ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  Positron Terrain Map
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSatellite(true);
-                    setIsWeatherDropdownOpen(false);
-                  }}
-                  className={`w-full px-3 py-1.5 text-left text-xs font-medium ${
-                    isSatellite ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  Satellite Imagery
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 2. FLOATING BOTTOM-LEFT WEATHER ALERT CARD matching screenshot */}
-      <div className="absolute bottom-4 left-4 z-[400] pointer-events-auto max-w-sm">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 shadow-md flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-          </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-900">Weather Alert</span>
-            </div>
-            <p className="text-[11px] text-slate-500 font-medium">
-              {hasSevereWeather
-                ? "Severe weather along your route"
-                : "Corridor atmospheric risk monitored"}
-            </p>
-          </div>
-          {onOpenRules && (
-            <button
-              type="button"
-              onClick={onOpenRules}
-              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 whitespace-nowrap ml-1"
-            >
-              View Details →
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 3. LEAFLET MAP CANVAS */}
-      <div className="w-full h-full">
+    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 flex flex-col shadow-xs isolate">
+      {/* 1. LEAFLET MAP CANVAS */}
+      <div className="w-full h-full relative z-0">
         <MapContainer
           center={[39.8283, -98.5795]}
           zoom={4}
@@ -293,7 +152,10 @@ export const MapView: React.FC<MapViewProps> = ({
             triggerCenter={recenterCount}
           />
 
-          <MapControls onRecenter={() => setRecenterCount((c) => c + 1)} />
+          <MapZoomController
+            onZoomIn={(fn) => { zoomInRef.current = fn; }}
+            onZoomOut={(fn) => { zoomOutRef.current = fn; }}
+          />
 
           {/* Positron Clean Soft Terrain Tiles */}
           {!isSatellite ? (
@@ -310,7 +172,7 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           )}
 
-          {/* 4. WEATHER CORRIDOR THERMAL HEATMAP OVERLAY */}
+          {/* 2. WEATHER CORRIDOR THERMAL HEATMAP OVERLAY */}
           {showHeatmap && corridorData && corridorData.points && (
             <>
               {corridorData.points.map((pt, idx) => {
@@ -342,7 +204,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 5. INACTIVE ALTERNATIVE ROUTES: Subtle Faded Lines */}
+          {/* 3. INACTIVE ALTERNATIVE ROUTES: Subtle Faded Lines */}
           {routes
             .filter((r) => r.id !== selectedRouteId)
             .map((r) => {
@@ -354,7 +216,7 @@ export const MapView: React.FC<MapViewProps> = ({
                   pathOptions={{
                     color: "#94a3b8",
                     weight: 3,
-                    opacity: 0.4,
+                    opacity: 0.45,
                     dashArray: "6, 8",
                   }}
                   eventHandlers={{
@@ -364,7 +226,7 @@ export const MapView: React.FC<MapViewProps> = ({
               );
             })}
 
-          {/* 6. ACTIVE ROUTE POLYLINE: Glowing Emerald Highway Focus Path */}
+          {/* 4. ACTIVE ROUTE POLYLINE: Glowing Emerald Highway Focus Path */}
           {selectedRoute && (
             <>
               {/* Outer Glow Halo */}
@@ -389,7 +251,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 7. ORIGIN & DESTINATION LABELED MARKERS matching screenshot */}
+          {/* 5. ORIGIN & DESTINATION LABELED MARKERS matching screenshot */}
           {startCoords && (
             <Marker
               position={[startCoords[1], startCoords[0]]}
@@ -403,7 +265,7 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           )}
 
-          {/* 8. CHECKPOINT DOTS on Active Route */}
+          {/* 6. CHECKPOINT DOTS on Active Route */}
           {selectedRoute &&
             selectedRoute.checkpoints &&
             selectedRoute.checkpoints.map((cp) => {
@@ -459,6 +321,158 @@ export const MapView: React.FC<MapViewProps> = ({
               );
             })}
         </MapContainer>
+      </div>
+
+      {/* 7. HIGH-VISIBILITY FLOATING OVERLAYS (RENDERED ON TOP WITH z-[1000]) */}
+
+      {/* Top Left: Risk Legend */}
+      <div className="absolute top-4 left-4 z-[1000] pointer-events-auto">
+        <div className="flex items-center space-x-3.5 bg-white px-4 py-2 rounded-2xl border border-slate-200 shadow-md text-xs font-bold text-slate-800">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
+            <span className="text-[11px] font-bold text-slate-800">Low</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
+            <span className="text-[11px] font-bold text-slate-800">Mod</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
+            <span className="text-[11px] font-bold text-slate-800">High</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+            <span className="text-[11px] font-bold text-slate-800">Severe</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Right: [Map View] [Risk Overlay] [Weather Layer ⌄] */}
+      <div className="absolute top-4 right-4 z-[1000] pointer-events-auto">
+        <div className="flex items-center space-x-2 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-md">
+          {/* Map View Pill */}
+          <button
+            type="button"
+            className="px-4 py-2 rounded-xl bg-[#101c38] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm"
+          >
+            <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span>Map View</span>
+          </button>
+
+          {/* Risk Overlay Pill */}
+          <button
+            type="button"
+            onClick={onToggleHeatmap}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              showHeatmap
+                ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs"
+                : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Risk Overlay</span>
+          </button>
+
+          {/* Weather Layer Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsWeatherDropdownOpen(!isWeatherDropdownOpen)}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition flex items-center gap-1.5"
+            >
+              <CloudSun className="w-3.5 h-3.5 text-amber-500" />
+              <span>Weather Layer</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {isWeatherDropdownOpen && (
+              <div className="absolute top-full right-0 mt-1.5 w-48 bg-white rounded-2xl border border-slate-200 shadow-xl py-1.5 z-[1100]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSatellite(false);
+                    setIsWeatherDropdownOpen(false);
+                  }}
+                  className={`w-full px-4 py-2 text-left text-xs font-bold transition ${
+                    !isSatellite ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Positron Terrain Map
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSatellite(true);
+                    setIsWeatherDropdownOpen(false);
+                  }}
+                  className={`w-full px-4 py-2 text-left text-xs font-bold transition ${
+                    isSatellite ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Satellite Imagery
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Left Center: Zoom In / Zoom Out / Recenter Pill Controls */}
+      <div className="absolute top-20 left-4 z-[1000] pointer-events-auto">
+        <div className="flex flex-col bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
+          <button
+            type="button"
+            onClick={() => zoomInRef.current?.()}
+            className="p-2.5 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
+            title="Zoom In"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => zoomOutRef.current?.()}
+            className="p-2.5 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
+            title="Zoom Out"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setRecenterCount((c) => c + 1)}
+            className="p-2.5 hover:bg-slate-100 text-slate-700 transition"
+            title="Center on Route"
+          >
+            <Crosshair className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Left: Weather Alert Floating Card */}
+      <div className="absolute bottom-4 left-4 z-[1000] pointer-events-auto max-w-sm">
+        <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-lg flex items-center space-x-3">
+          <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900">Weather Alert</span>
+            </div>
+            <p className="text-[11px] text-slate-600 font-medium">
+              {hasSevereWeather
+                ? "Severe weather along your route"
+                : "Corridor atmospheric risk monitored"}
+            </p>
+          </div>
+          {onOpenRules && (
+            <button
+              type="button"
+              onClick={onOpenRules}
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 whitespace-nowrap ml-1.5 underline"
+            >
+              View Details →
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
