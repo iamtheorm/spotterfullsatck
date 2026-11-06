@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Play, Pause, RotateCcw, Clock, Flame } from "lucide-react";
+import { Play, Pause, RotateCcw, Flame } from "lucide-react";
 
 interface ForecastSliderProps {
   forecastHour: number;
@@ -39,15 +39,15 @@ export const ForecastSlider: React.FC<ForecastSliderProps> = ({
   }, [isPlaying, onHourChange]);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 flex-shrink-0">
+    <div className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-xs flex-shrink-0">
       <div className="flex items-center justify-between gap-3 text-xs">
-        {/* Controls */}
+        {/* Playback Controls */}
         <div className="flex items-center space-x-2">
           <button
             type="button"
             onClick={() => setIsPlaying(!isPlaying)}
             title={isPlaying ? "Pause timeline" : "Play forecast progression"}
-            className="p-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white transition flex-shrink-0"
+            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex-shrink-0 shadow-2xs"
           >
             {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
           </button>
@@ -59,12 +59,12 @@ export const ForecastSlider: React.FC<ForecastSliderProps> = ({
               (onHourChange as any)(0);
             }}
             title="Reset to departure time"
-            className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition flex-shrink-0 border border-slate-700"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex-shrink-0 border border-slate-200"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          <span className="font-mono font-semibold text-slate-200 min-w-[50px]">
+          <span className="font-mono font-bold text-slate-800 min-w-[50px]">
             +{forecastHour}h
           </span>
         </div>
@@ -81,14 +81,14 @@ export const ForecastSlider: React.FC<ForecastSliderProps> = ({
               setIsPlaying(false);
               (onHourChange as any)(parseInt(e.target.value, 10));
             }}
-            className="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-emerald-500"
+            className="w-full h-1.5 bg-slate-200 rounded appearance-none cursor-pointer accent-blue-600"
           />
         </div>
 
-        {/* Status & Toggle */}
+        {/* Valid time & Heatmap Toggle */}
         <div className="flex items-center space-x-2">
           {validTimeFormatted && (
-            <span className="text-[11px] font-mono text-slate-400 hidden lg:inline">
+            <span className="text-[11px] font-mono text-slate-500 hidden lg:inline">
               {validTimeFormatted}
             </span>
           )}
@@ -96,14 +96,14 @@ export const ForecastSlider: React.FC<ForecastSliderProps> = ({
           <button
             type="button"
             onClick={onToggleHeatmap}
-            className={`px-2.5 py-1 rounded text-xs font-medium border transition flex items-center space-x-1 ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition flex items-center space-x-1 ${
               showHeatmap
-                ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
-                : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                ? "bg-amber-50 text-amber-800 border-amber-300 shadow-2xs"
+                : "bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200"
             }`}
           >
-            <Flame className="w-3 h-3 text-amber-400" />
-            <span>{showHeatmap ? "Heatmap On" : "Heatmap Off"}</span>
+            <Flame className="w-3 h-3 text-amber-500" />
+            <span>{showHeatmap ? "Heatmap Active" : "Heatmap Hidden"}</span>
           </button>
         </div>
       </div>

@@ -151,7 +151,7 @@ export function App() {
   }, [forecastHour, evaluation]);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-950 font-sans text-slate-100 overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-slate-50 font-sans text-slate-900 overflow-hidden">
       {/* Top App Header */}
       <Header
         onOpenRules={() => setIsRulesOpen(true)}
@@ -161,17 +161,17 @@ export function App() {
       {/* Main Two-Panel Layout: Sidebar + Full Map */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
         {/* Left Sidebar: Controls & Route Alternatives (Independent Scroll) */}
-        <aside className="w-full md:w-[380px] lg:w-[410px] shrink-0 border-r border-slate-800 bg-slate-950 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10">
+        <aside className="w-full md:w-[380px] lg:w-[410px] shrink-0 border-r border-slate-200 bg-slate-50 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10 shadow-2xs">
           {/* Error Banner */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-center justify-between">
+            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium">
               <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                 <span>{error}</span>
               </div>
               <button
                 onClick={() => setError(null)}
-                className="text-red-400 hover:text-white underline text-[10px]"
+                className="text-red-700 hover:text-red-900 underline text-[11px]"
               >
                 Dismiss
               </button>
@@ -189,13 +189,13 @@ export function App() {
           {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
                   Alternative Routes ({evaluation.routes.length})
                 </span>
                 <button
                   type="button"
                   onClick={() => setIsComparisonOpen(true)}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 transition"
+                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition"
                 >
                   <TableProperties className="w-3.5 h-3.5" />
                   <span>Compare</span>
@@ -220,9 +220,9 @@ export function App() {
         </aside>
 
         {/* Right Main Panel: Pinned Interactive Map & Docked Timeline Slider */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative">
+        <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-100 p-3 gap-2.5">
           {/* Leaflet Map (Takes All Available Space) */}
-          <div className="flex-1 relative w-full h-full">
+          <div className="flex-1 relative w-full h-full min-h-0">
             <MapView
               routes={evaluation?.routes || []}
               selectedRouteId={selectedRouteId}
@@ -245,16 +245,14 @@ export function App() {
           </div>
 
           {/* Docked Forecast Slider at Bottom of Map */}
-          <div className="p-3 bg-slate-950 border-t border-slate-800">
-            <ForecastSlider
-              forecastHour={forecastHour}
-              onHourChange={setForecastHour}
-              validTimeFormatted={corridorData?.valid_time_formatted}
-              showHeatmap={showHeatmap}
-              onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
-              isLoadingCorridor={isLoadingCorridor}
-            />
-          </div>
+          <ForecastSlider
+            forecastHour={forecastHour}
+            onHourChange={setForecastHour}
+            validTimeFormatted={corridorData?.valid_time_formatted}
+            showHeatmap={showHeatmap}
+            onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
+            isLoadingCorridor={isLoadingCorridor}
+          />
         </main>
       </div>
 

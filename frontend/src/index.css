@@ -7,57 +7,56 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
+  background-color: #f8fafc;
+  color: #0f172a;
 }
 
-/* Custom scrollbars */
+/* Custom modern scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #cbd5e1;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #94a3b8;
 }
 
-/* Leaflet dark styling adjustments */
+/* Leaflet map base styling */
 .leaflet-container {
-  background-color: #0f172a !important;
+  background-color: #e2e8f0 !important;
   font-family: inherit;
 }
 
-/* OpenStreetMap tile dark filter (free, no API key, zero watermarks) */
-.leaflet-tile-pane {
-  filter: brightness(0.6) invert(1) contrast(1.7) hue-rotate(200deg) saturate(0.35) brightness(0.9);
-}
-.map-tiles-dark img.leaflet-tile {
-  filter: brightness(0.6) invert(1) contrast(1.7) hue-rotate(200deg) saturate(0.35) brightness(0.9);
+/* Desaturated clean terrain tiles (removes visual noise so risk markers and heatmaps pop) */
+.map-tiles-clean img.leaflet-tile {
+  filter: saturate(0.2) contrast(1.05) brightness(1.02);
 }
 
+/* Professional light popups */
 .leaflet-popup-content-wrapper {
-  background: #1e293b !important;
-  color: #f8fafc !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
-  border: 1px solid #334155;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08) !important;
+  border: 1px solid #e2e8f0 !important;
   padding: 0.25rem !important;
 }
 
 .leaflet-popup-tip {
-  background: #1e293b !important;
-  border: 1px solid #334155;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 .leaflet-container a.leaflet-popup-close-button {
-  color: #94a3b8 !important;
+  color: #64748b !important;
   padding: 6px 12px 0 0 !important;
 }
 .leaflet-container a.leaflet-popup-close-button:hover {
-  color: #f8fafc !important;
+  color: #0f172a !important;
 }
-
