@@ -1,0 +1,31 @@
+services:
+  # Backend Django API Service
+  - type: web
+    name: truck-routing-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && python manage.py migrate"
+    startCommand: "gunicorn truck_weather_routing.wsgi:application --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: ORS_API_KEY
+        sync: false
+
+  # Frontend React SPA
+  - type: web
+    name: truck-routing-frontend
+    env: static
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -1,0 +1,1 @@
+web: gunicorn truck_weather_routing.wsgi --log-file -
