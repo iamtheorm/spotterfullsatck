@@ -16,7 +16,8 @@ interface MapViewProps {
   routes: RouteOption[];
   selectedRouteId: string;
   onSelectRoute: (id: string) => void;
-  onSelectCheckpoint: (cp: Checkpoint, routeName: string) => void;
+  onSelectCheckpoint?: (cp: Checkpoint) => void;
+  onOpenModal: (cp: Checkpoint, routeName: string) => void;
   corridorData?: CorridorData;
   showHeatmap: boolean;
   selectedCheckpoint?: Checkpoint | null;
@@ -60,6 +61,7 @@ export const MapView: React.FC<MapViewProps> = ({
   selectedRouteId,
   onSelectRoute,
   onSelectCheckpoint,
+  onOpenModal,
   corridorData,
   showHeatmap,
   selectedCheckpoint,
@@ -67,7 +69,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950">
+    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 isolate z-0">
       <MapContainer
         center={[39.8283, -98.5795]} // Center of US
         zoom={5}
@@ -197,7 +199,9 @@ export const MapView: React.FC<MapViewProps> = ({
                 center={[cp.lat, cp.lon]}
                 radius={isTargeted ? 8 : 6}
                 eventHandlers={{
-                  click: () => onSelectCheckpoint(cp, selectedRoute.name),
+                  click: () => {
+                    if (onSelectCheckpoint) onSelectCheckpoint(cp);
+                  },
                 }}
                 pathOptions={{
                   fillColor: cp.color,
@@ -257,10 +261,10 @@ export const MapView: React.FC<MapViewProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => onSelectCheckpoint(cp, selectedRoute.name)}
-                        className="w-full mt-2 py-1 px-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-semibold transition"
+                        onClick={() => onOpenModal(cp, selectedRoute.name)}
+                        className="w-full mt-2 py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold transition shadow flex items-center justify-center gap-1"
                       >
-                        Inspect Full Telemetry
+                        Inspect Full Telemetry & Rules
                       </button>
                     </div>
                   </div>

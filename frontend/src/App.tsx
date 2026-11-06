@@ -229,7 +229,10 @@ export function App() {
                   const r = evaluation?.routes.find((item) => item.id === id);
                   if (r) setSelectedRouteName(r.name);
                 }}
-                onSelectCheckpoint={(cp, rName) => {
+                onSelectCheckpoint={(cp) => {
+                  setSelectedCheckpoint(cp);
+                }}
+                onOpenModal={(cp, rName) => {
                   setSelectedCheckpoint(cp);
                   setSelectedRouteName(rName);
                 }}

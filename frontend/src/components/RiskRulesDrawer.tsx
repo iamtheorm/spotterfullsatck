@@ -10,7 +10,7 @@ export const RiskRulesDrawer: React.FC<RiskRulesDrawerProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end">
+    <div className="fixed inset-0 z-[9999] overflow-hidden bg-black/75 backdrop-blur-md flex justify-end">
       <div className="w-full max-w-xl bg-slate-900 border-l border-slate-800 p-6 overflow-y-auto h-full shadow-2xl flex flex-col justify-between">
         <div>
           <div className="flex items-center justify-between pb-4 border-b border-slate-800">

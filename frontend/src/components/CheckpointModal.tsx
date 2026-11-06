@@ -54,7 +54,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
   } = checkpoint;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] overflow-hidden bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 shadow-2xl relative text-slate-100">
         <button
           onClick={onClose}
