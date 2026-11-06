@@ -7,14 +7,14 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+  background-color: #0b1120;
   color: #0f172a;
 }
 
 /* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: #f1f5f9;
@@ -68,16 +68,67 @@ html, body, #root {
   border: 1px solid #e2e8f0 !important;
   padding: 0.25rem !important;
 }
-
 .leaflet-popup-tip {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
 }
 
-.leaflet-container a.leaflet-popup-close-button {
-  color: #64748b !important;
-  padding: 6px 12px 0 0 !important;
+/* Moving Truck Leaflet Marker & Headlights Beam */
+.animated-truck-marker {
+  transition: transform 0.6s linear, left 0.6s linear, top 0.6s linear;
+  will-change: transform, left, top;
 }
-.leaflet-container a.leaflet-popup-close-button:hover {
-  color: #0f172a !important;
+
+.truck-headlight-beam {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  transform: translateY(-50%);
+  width: 45px;
+  height: 24px;
+  background: radial-gradient(ellipse at left, rgba(254, 240, 138, 0.75) 0%, rgba(254, 240, 138, 0) 80%);
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+/* Animations for Road Flow & Whistle / Horn Ripple */
+@keyframes roadFlow {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-road-flow {
+  animation: roadFlow 0.8s linear infinite;
+}
+
+@keyframes truckBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+.animate-truck-bounce {
+  animation: truckBounce 0.4s ease-in-out infinite;
+}
+
+@keyframes hornRipple {
+  0% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+.animate-horn-ripple {
+  animation: hornRipple 0.9s cubic-bezier(0, 0.2, 0.8, 1) infinite;
 }

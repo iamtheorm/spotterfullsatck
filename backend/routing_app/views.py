@@ -82,6 +82,8 @@ class RouteEvaluationView(APIView):
                 step_miles=step_miles,
                 departure_time=departure_time,
                 ors_api_key=ors_key,
+                origin_name=orig_name,
+                dest_name=dest_name,
             )
         except Exception as e:
             logger.error(f"Routing calculation failed: {e}", exc_info=True)

@@ -143,7 +143,33 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
         "seattle": (47.6062, -122.3321, "Seattle, WA, USA"),
         "los angeles": (34.0522, -118.2437, "Los Angeles, CA, USA"),
         "new york": (40.7128, -74.0060, "New York, NY, USA"),
+        "nyc": (40.7128, -74.0060, "New York, NY, USA"),
+        "boston": (42.3601, -71.0589, "Boston, MA, USA"),
         "miami": (25.7617, -80.1918, "Miami, FL, USA"),
+        "houston": (29.7604, -95.3698, "Houston, TX, USA"),
+        "phoenix": (33.4484, -112.0740, "Phoenix, AZ, USA"),
+        "philadelphia": (39.9526, -75.1652, "Philadelphia, PA, USA"),
+        "san antonio": (29.4241, -98.4936, "San Antonio, TX, USA"),
+        "san diego": (32.7157, -117.1611, "San Diego, CA, USA"),
+        "austin": (30.2672, -97.7431, "Austin, TX, USA"),
+        "san francisco": (37.7749, -122.4194, "San Francisco, CA, USA"),
+        "indianapolis": (39.7684, -86.1581, "Indianapolis, IN, USA"),
+        "columbus": (39.9612, -82.9988, "Columbus, OH, USA"),
+        "charlotte": (35.2271, -80.8431, "Charlotte, NC, USA"),
+        "detroit": (42.3314, -83.0458, "Detroit, MI, USA"),
+        "memphis": (35.1495, -90.0490, "Memphis, TN, USA"),
+        "nashville": (36.1627, -86.7816, "Nashville, TN, USA"),
+        "st. louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
+        "st louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
+        "kansas city": (39.0997, -94.5786, "Kansas City, MO, USA"),
+        "minneapolis": (44.9778, -93.2650, "Minneapolis, MN, USA"),
+        "cleveland": (41.4993, -81.6944, "Cleveland, OH, USA"),
+        "pittsburgh": (40.4406, -79.9959, "Pittsburgh, PA, USA"),
+        "tampa": (27.9506, -82.4572, "Tampa, FL, USA"),
+        "orlando": (28.5383, -81.3792, "Orlando, FL, USA"),
+        "las vegas": (36.1699, -115.1398, "Las Vegas, NV, USA"),
+        "salt lake city": (40.7608, -111.8910, "Salt Lake City, UT, USA"),
+        "portland": (45.5152, -122.6784, "Portland, OR, USA"),
         "toronto": (43.6532, -79.3832, "Toronto, ON, Canada"),
         "montreal": (45.5017, -73.5673, "Montreal, QC, Canada"),
         "vancouver": (49.2827, -123.1207, "Vancouver, BC, Canada"),
@@ -563,6 +589,79 @@ def fetch_osrm_routes(
     return None
 
 
+def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[str] = None, dest_name: Optional[str] = None):
+    """
+    Assigns realistic, corridor-specific names tailored to the origin and destination cities,
+    avoiding generic labels across different locations.
+    """
+    if not routes:
+        return
+    orig_city = origin_name.split(",")[0].strip() if origin_name else "Origin"
+    dest_city = dest_name.split(",")[0].strip() if dest_name else "Destination"
+
+    key = f"{orig_city.lower()}->{dest_city.lower()}"
+    rev_key = f"{dest_city.lower()}->{orig_city.lower()}"
+
+    KNOWN_CORRIDORS = {
+        "chicago->dallas": [
+            "I-55 S & I-44 W Direct Arterial (via St. Louis)",
+            "I-57 S & I-40 W Eastern Corridor (via Memphis)",
+            "I-80 W & I-35 S Western Bypass (via Kansas City)",
+        ],
+        "delhi->kanpur": [
+            "Yamuna Expressway & NH-19 Corridor (via Agra)",
+            "Upper Ganga Canal & GT Road Arterial (via Aligarh)",
+            "Southern Yamuna Belt & Bundelkhand Link",
+        ],
+        "delhi->lucknow": [
+            "Agra-Lucknow Expressway (Direct Freight Corridor)",
+            "NH-9 & Bareilly Bypass Expressway (Northern Corridor)",
+            "Yamuna Expressway & Kanpur Arterial Link",
+        ],
+        "atlanta->miami": [
+            "I-75 S & Florida Turnpike (Direct Interstate)",
+            "I-95 S Coastal Freight Arterial (via Savannah)",
+            "US-441 & Central Florida Bypass",
+        ],
+        "denver->kansas city": [
+            "I-70 E High Plains Interstate (Direct Arterial)",
+            "US-36 E Northern Prairie Bypass",
+            "US-40 E & US-287 S Southern Regional Corridor",
+        ],
+        "new york->los angeles": [
+            "I-80 W Transcontinental Freight Arterial",
+            "I-70 W Central Rocky Mountain Route",
+            "I-40 W Southern Transcontinental Corridor",
+        ],
+        "seattle->los angeles": [
+            "I-5 S Pacific Highway Freight Corridor",
+            "US-101 Coastal Bypass Route",
+            "US-97 S Central Cascade Inland Route",
+        ],
+        "mumbai->pune": [
+            "Mumbai-Pune Expressway (Yashwantrao Chavan Arterial)",
+            "Old Mumbai-Pune Highway (NH-48 Corridor)",
+            "Panvel-Khopoli Commercial Freight Bypass",
+        ],
+    }
+
+    if key in KNOWN_CORRIDORS:
+        names = KNOWN_CORRIDORS[key]
+    elif rev_key in KNOWN_CORRIDORS:
+        names = [f"{dest_city} – {orig_city} {r.split('(', 1)[0].strip()}" for r in KNOWN_CORRIDORS[rev_key]]
+    else:
+        names = [
+            f"{orig_city} – {dest_city} Primary Freight Arterial (Direct)",
+            f"{orig_city} – {dest_city} Northern Bypass Corridor",
+            f"{orig_city} – {dest_city} Southern Regional Gateway",
+        ]
+
+    for idx, r in enumerate(routes):
+        if idx < len(names):
+            r["name"] = names[idx]
+            r["summary_title"] = f"Route {idx + 1}: {names[idx]}"
+
+
 def get_three_alternative_routes(
     start_lat: float,
     start_lon: float,
@@ -571,6 +670,8 @@ def get_three_alternative_routes(
     step_miles: float,
     departure_time: datetime,
     ors_api_key: Optional[str] = None,
+    origin_name: Optional[str] = None,
+    dest_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Orchestrates fetching 3 distinct alternative routes:
@@ -578,22 +679,24 @@ def get_three_alternative_routes(
     2. Try OSRM
     3. Fallback to realistic simulated interstate corridors
     """
+    routes: Optional[List[Dict[str, Any]]] = None
     key = ors_api_key or getattr(settings, "ORS_API_KEY", "")
     if key and key.strip():
         try:
             routes = fetch_ors_routes(key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
-            if routes and len(routes) >= 3:
-                return routes
         except Exception as e:
             logger.warning(f"OpenRouteService failed: {e}")
 
-    try:
-        routes = fetch_osrm_routes(start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
-        if routes and len(routes) >= 3:
-            return routes
-    except Exception as e:
-        logger.warning(f"OSRM failed: {e}")
+    if not routes or len(routes) < 3:
+        try:
+            routes = fetch_osrm_routes(start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
+        except Exception as e:
+            logger.warning(f"OSRM failed: {e}")
 
-    # Fallback to high precision simulated highway corridors
-    return generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)
+    if not routes or len(routes) < 3:
+        routes = generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)
+
+    # Assign tailored dynamic corridor names based on cities
+    assign_corridor_names(routes, origin_name, dest_name)
+    return routes
 

@@ -71,20 +71,7 @@ export function App() {
     }
   };
 
-  // Initial evaluation on mount
-  useEffect(() => {
-    const initialDep = new Date();
-    initialDep.setDate(initialDep.getDate() + 1);
-    initialDep.setHours(2, 30, 0, 0);
 
-    handleEvaluate({
-      origin: "Chicago, IL",
-      destination: "Dallas, TX",
-      departure_time: initialDep.toISOString(),
-      load_weight: 34000,
-      step_miles: 25,
-    });
-  }, []);
 
   // Update corridor grid when forecastHour changes
   useEffect(() => {

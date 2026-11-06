@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -19,7 +19,10 @@ import {
   Crosshair,
   Plus,
   Minus,
+  Truck,
+  Volume2,
 } from "lucide-react";
+import { playTruckAirHorn } from "../utils/audio";
 
 interface MapViewProps {
   routes: RouteOption[];
@@ -39,7 +42,7 @@ interface MapViewProps {
   destinationName?: string;
 }
 
-// Named Marker Pin Icon matching screenshot (e.g. green circle Chicago, red pin Dallas)
+// Named Marker Pin Icon
 const createOriginMarker = (cityName: string) => {
   return L.divIcon({
     className: "custom-origin-marker",
@@ -65,6 +68,30 @@ const createDestinationMarker = (cityName: string) => {
     `,
     iconSize: [95, 30],
     iconAnchor: [47, 15],
+  });
+};
+
+// Animated Commercial Moving Truck Icon with Headlights Beam
+const createMovingTruckIcon = (headingDeg: number = 0) => {
+  return L.divIcon({
+    className: "custom-animated-truck-marker",
+    html: `
+      <div style="position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; transform: rotate(${headingDeg}deg); transition: transform 0.4s ease;">
+        <!-- Amber Headlight Beam Beam radiating forward -->
+        <div style="position: absolute; right: -30px; top: 12px; width: 40px; height: 24px; background: radial-gradient(ellipse at left, rgba(253, 224, 71, 0.9) 0%, rgba(253, 224, 71, 0) 80%); border-radius: 50%; pointer-events: none;"></div>
+        <!-- Truck Cab & Trailer Icon Container -->
+        <div style="width: 40px; height: 40px; background: #0f172a; border: 2.5px solid #38bdf8; border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.5); color: white;">
+          <svg style="width: 22px; height: 22px; color: #38bdf8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [48, 48],
+    iconAnchor: [24, 24],
   });
 };
 
@@ -121,6 +148,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const [isSatellite, setIsSatellite] = useState(false);
   const [recenterCount, setRecenterCount] = useState(0);
   const [isWeatherDropdownOpen, setIsWeatherDropdownOpen] = useState(false);
+  const [truckStep, setTruckStep] = useState(0);
 
   const zoomInRef = React.useRef<() => void>(() => {});
   const zoomOutRef = React.useRef<() => void>(() => {});
@@ -134,6 +162,26 @@ export const MapView: React.FC<MapViewProps> = ({
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
 
   const hasSevereWeather = selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
+
+  // Animated truck progression along route checkpoints
+  useEffect(() => {
+    if (!selectedRoute?.checkpoints || selectedRoute.checkpoints.length === 0) return;
+    setTruckStep(0);
+    const interval = setInterval(() => {
+      setTruckStep((prev) => (prev + 1) % selectedRoute.checkpoints.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [selectedRoute]);
+
+  const currentTruckCP = selectedRoute?.checkpoints?.[truckStep];
+  const nextTruckCP = selectedRoute?.checkpoints?.[(truckStep + 1) % (selectedRoute?.checkpoints?.length || 1)];
+
+  const truckHeading = useMemo(() => {
+    if (!currentTruckCP || !nextTruckCP) return 0;
+    const dy = nextTruckCP.lat - currentTruckCP.lat;
+    const dx = nextTruckCP.lon - currentTruckCP.lon;
+    return Math.atan2(dx, dy) * (180 / Math.PI);
+  }, [currentTruckCP, nextTruckCP]);
 
   return (
     <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 flex flex-col shadow-xs isolate">
@@ -265,7 +313,30 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           )}
 
-          {/* 6. CHECKPOINT DOTS on Active Route */}
+          {/* 6. ANIMATED MOVING COMMERCIAL TRUCK MARKER */}
+          {currentTruckCP && (
+            <Marker
+              position={[currentTruckCP.lat, currentTruckCP.lon]}
+              icon={createMovingTruckIcon(truckHeading)}
+            >
+              <Tooltip direction="top" offset={[0, -16]} opacity={0.98} permanent={false}>
+                <div className="font-mono text-center text-xs">
+                  <div className="font-black text-sky-600 flex items-center justify-center gap-1">
+                    <Truck className="w-3.5 h-3.5" />
+                    <span>Freightliner Cascadia</span>
+                  </div>
+                  <div className="text-[10px] text-slate-600">
+                    Mile Marker: {currentTruckCP.mile_marker} &bull; 62 MPH
+                  </div>
+                  <div className="text-[9px] text-emerald-600 font-bold">
+                    ETA: {currentTruckCP.eta_formatted}
+                  </div>
+                </div>
+              </Tooltip>
+            </Marker>
+          )}
+
+          {/* 7. CHECKPOINT DOTS on Active Route */}
           {selectedRoute &&
             selectedRoute.checkpoints &&
             selectedRoute.checkpoints.map((cp) => {
@@ -323,7 +394,7 @@ export const MapView: React.FC<MapViewProps> = ({
         </MapContainer>
       </div>
 
-      {/* 7. HIGH-VISIBILITY FLOATING OVERLAYS (RENDERED ON TOP WITH z-[1000]) */}
+      {/* 8. HIGH-VISIBILITY FLOATING OVERLAYS */}
 
       {/* Top Left: Risk Legend */}
       <div className="absolute top-4 left-4 z-[1000] pointer-events-auto">
