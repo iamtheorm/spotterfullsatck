@@ -492,13 +492,19 @@ def get_three_alternative_routes(
     """
     key = ors_api_key or getattr(settings, "ORS_API_KEY", "")
     if key and key.strip():
-        routes = fetch_ors_routes(key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
+        try:
+            routes = fetch_ors_routes(key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
+            if routes and len(routes) >= 3:
+                return routes
+        except Exception as e:
+            logger.warning(f"OpenRouteService failed: {e}")
+
+    try:
+        routes = fetch_osrm_routes(start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
         if routes and len(routes) >= 3:
             return routes
-
-    routes = fetch_osrm_routes(start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
-    if routes and len(routes) >= 3:
-        return routes
+    except Exception as e:
+        logger.warning(f"OSRM failed: {e}")
 
     # Fallback to high precision simulated highway corridors
     return generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)

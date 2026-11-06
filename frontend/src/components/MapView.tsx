@@ -76,11 +76,12 @@ export const MapView: React.FC<MapViewProps> = ({
       >
         <MapBoundsAdjuster routes={routes} />
 
-        {/* High performance dark matter map tiles */}
+        {/* High performance dark navigation map tiles using OpenStreetMap */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
+          className="map-tiles-dark"
         />
 
         {/* 1. Corridor Weather Heatmap Layer */}
