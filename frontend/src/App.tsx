@@ -243,6 +243,8 @@ export function App() {
             <MapView
               routes={evaluation?.routes || []}
               selectedRouteId={selectedRouteId}
+              originName={evaluation?.origin?.name || formInputs.origin}
+              destinationName={evaluation?.destination?.name || formInputs.destination}
               onSelectRoute={(id) => {
                 setSelectedRouteId(id);
                 const r = evaluation?.routes.find((item) => item.id === id);

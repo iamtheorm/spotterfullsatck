@@ -40,6 +40,8 @@ interface MapViewProps {
   onHourChange: React.Dispatch<React.SetStateAction<number>> | ((hour: number) => void);
   isLoadingCorridor?: boolean;
   selectedCheckpoint?: Checkpoint | null;
+  originName?: string;
+  destinationName?: string;
 }
 
 // Named Marker Pin Icon matching screenshot (e.g. green circle Chicago, red pin Dallas)
@@ -108,6 +110,8 @@ export const MapView: React.FC<MapViewProps> = ({
   onHourChange,
   isLoadingCorridor,
   selectedCheckpoint,
+  originName = "Chicago",
+  destinationName = "Dallas",
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
@@ -115,6 +119,9 @@ export const MapView: React.FC<MapViewProps> = ({
   const [isWeatherDropdownOpen, setIsWeatherDropdownOpen] = useState(false);
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+
+  const originCity = originName ? originName.split(",")[0].trim() : "Origin";
+  const destCity = destinationName ? destinationName.split(",")[0].trim() : "Destination";
 
   // Timeline auto-play
   useEffect(() => {
@@ -399,13 +406,13 @@ export const MapView: React.FC<MapViewProps> = ({
           {startCoords && (
             <Marker
               position={[startCoords[1], startCoords[0]]}
-              icon={createOriginMarker("Chicago")}
+              icon={createOriginMarker(originCity)}
             />
           )}
           {endCoords && (
             <Marker
               position={[endCoords[1], endCoords[0]]}
-              icon={createDestinationMarker("Dallas")}
+              icon={createDestinationMarker(destCity)}
             />
           )}
 
