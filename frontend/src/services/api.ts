@@ -1,6 +1,13 @@
 import { EvaluationResponse, RouteEvaluationRequest, CorridorData } from "../types";
 
-const API_BASE = "/api";
+// In development, target Django directly at http://localhost:8000/api with CORS enabled
+// In production, fallback to relative path /api
+const API_BASE =
+  (import.meta as any).env?.VITE_API_URL ||
+  (typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? "http://localhost:8000/api"
+    : "/api");
 
 export async function evaluateRoutes(
   req: RouteEvaluationRequest
