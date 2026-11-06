@@ -23,7 +23,8 @@ MILES_TO_METERS = 1609.34
 
 def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
     """
-    Geocodes an address or parses coordinates "lat,lon".
+    Geocodes an address or parses coordinates "lat,lon" anywhere worldwide.
+    Uses Open-Meteo Global Geocoding API + OSM Nominatim fallback.
     Returns (lat, lon, display_name).
     """
     if not query or not query.strip():
@@ -42,14 +43,36 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
         except ValueError:
             pass
 
-    # Query Nominatim OpenStreetMap
-    headers = {"User-Agent": "WeatherAwareTruckRouting/1.0 (truck-weather-app@example.com)"}
+    # 1. Primary: Open-Meteo Fast Global Geocoding API (Worldwide coverage, zero rate-limit issues)
+    try:
+        resp = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": cleaned, "count": 1, "language": "en", "format": "json"},
+            timeout=6,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            results = data.get("results", [])
+            if results and len(results) > 0:
+                item = results[0]
+                lat = float(item["latitude"])
+                lon = float(item["longitude"])
+                name = item.get("name", cleaned)
+                admin1 = item.get("admin1", "")
+                country = item.get("country", "")
+                display = f"{name}, {admin1}, {country}".replace(", ,", ",").strip(", ")
+                return lat, lon, display
+    except Exception as e:
+        logger.warning(f"Open-Meteo geocoding failed for '{cleaned}': {e}")
+
+    # 2. Secondary: Nominatim OpenStreetMap
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) WeatherRoutingApp/1.0"}
     try:
         resp = requests.get(
             "https://nominatim.openstreetmap.org/search",
             params={"q": cleaned, "format": "json", "limit": 1},
             headers=headers,
-            timeout=5,
+            timeout=6,
         )
         if resp.status_code == 200:
             data = resp.json()
@@ -62,8 +85,9 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
     except Exception as e:
         logger.warning(f"Nominatim geocoding failed for '{cleaned}': {e}")
 
-    # Fallback dictionary of common transport hubs if network fails or offline
+    # 3. Fallback dictionary of common worldwide transport hubs
     KNOWN_HUBS = {
+        # North America
         "chicago": (41.8781, -87.6298, "Chicago, IL, USA"),
         "dallas": (32.7767, -96.7970, "Dallas, TX, USA"),
         "denver": (39.7392, -104.9903, "Denver, CO, USA"),
@@ -71,18 +95,32 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
         "seattle": (47.6062, -122.3321, "Seattle, WA, USA"),
         "los angeles": (34.0522, -118.2437, "Los Angeles, CA, USA"),
         "new york": (40.7128, -74.0060, "New York, NY, USA"),
-        "st louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
-        "houston": (29.7604, -95.3698, "Houston, TX, USA"),
-        "kansas city": (39.0997, -94.5786, "Kansas City, MO, USA"),
-        "minneapolis": (44.9778, -93.2650, "Minneapolis, MN, USA"),
-        "detroit": (42.3314, -83.0458, "Detroit, MI, USA"),
         "miami": (25.7617, -80.1918, "Miami, FL, USA"),
-        "phoenix": (33.4484, -112.0740, "Phoenix, AZ, USA"),
+        "toronto": (43.6532, -79.3832, "Toronto, ON, Canada"),
+        "montreal": (45.5017, -73.5673, "Montreal, QC, Canada"),
+        "vancouver": (49.2827, -123.1207, "Vancouver, BC, Canada"),
+        # Europe
+        "london": (51.5074, -0.1278, "London, UK"),
+        "paris": (48.8566, 2.3522, "Paris, France"),
+        "berlin": (52.5200, 13.4050, "Berlin, Germany"),
+        "munich": (48.1374, 11.5755, "Munich, Germany"),
+        "frankfurt": (50.1109, 8.6821, "Frankfurt, Germany"),
+        "amsterdam": (52.3676, 4.9041, "Amsterdam, Netherlands"),
+        "madrid": (40.4168, -3.7038, "Madrid, Spain"),
+        "rome": (41.9028, 12.4964, "Rome, Italy"),
+        # International
+        "tokyo": (35.6762, 139.6503, "Tokyo, Japan"),
+        "sydney": (-33.8688, 151.2093, "Sydney, Australia"),
+        "melbourne": (-37.8136, 144.9631, "Melbourne, Australia"),
+        "mumbai": (19.0760, 72.8777, "Mumbai, India"),
+        "delhi": (28.6139, 77.2090, "Delhi, India"),
     }
     lowered = cleaned.lower()
     for k, v in KNOWN_HUBS.items():
         if k in lowered:
             return v
+
+    return None
 
     return None
 
