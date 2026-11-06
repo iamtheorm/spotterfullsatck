@@ -1,33 +1,13 @@
 import React from "react";
-import { Bell, Truck } from "lucide-react";
 
 interface HeaderProps {
   onOpenRules?: () => void;
   onSelectPreset?: (origin: string, dest: string, weight: number) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenRules, onSelectPreset }) => {
+export const Header: React.FC<HeaderProps> = () => {
   return (
     <header className="bg-white border-b border-slate-200/80 relative z-30 select-none">
-      {/* Top Browser / macOS Window Tab Bar */}
-      <div className="flex items-center justify-between px-4 py-1.5 bg-[#edf1f7] border-b border-slate-200/70 text-xs">
-        <div className="flex items-center space-x-2">
-          {/* macOS window control dots */}
-          <div className="flex items-center space-x-1.5 mr-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f57] border border-[#e0443e]"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#febc2e] border border-[#d89e24]"></span>
-            <span className="w-2.5 h-2.5 rounded-full bg-[#28c840] border border-[#1aab29]"></span>
-          </div>
-
-          {/* Active Browser Tab */}
-          <div className="flex items-center space-x-2 px-3.5 py-1 bg-white rounded-t-lg border-t border-x border-slate-200/90 shadow-2xs text-slate-800 font-semibold text-[11px]">
-            <Truck className="w-3.5 h-3.5 text-slate-800" />
-            <span>Weather-Aware Truck Routing</span>
-            <span className="text-slate-400 font-bold ml-1.5 hover:text-slate-700 cursor-pointer text-xs">+</span>
-          </div>
-        </div>
-      </div>
-
       {/* Main Header Banner */}
       <div className="relative h-20 md:h-22 px-6 flex items-center justify-between overflow-hidden bg-white">
         {/* Left Side: Truck Logo + Title + "Plan smarter. Deliver safer." with orange brush stroke */}
@@ -80,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenRules, onSelectPreset }) =
           </div>
         </div>
 
-        {/* Right Side: Panoramic Truck on Highway + Notification Bell + Profile Avatar */}
+        {/* Right Side: Panoramic Truck on Highway */}
         <div className="absolute top-0 right-0 h-full w-3/5 md:w-1/2 flex items-center justify-end pointer-events-none">
           {/* Panoramic truck background photo with soft linear gradient fade */}
           <div
@@ -92,24 +72,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenRules, onSelectPreset }) =
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 15%, black 45%)",
             }}
           />
-
-          {/* User controls on top right */}
-          <div className="relative z-20 flex items-center space-x-3.5 mr-6 pointer-events-auto">
-            {/* Notification Bell with red badge dot */}
-            <button
-              type="button"
-              className="relative p-2.5 rounded-full bg-white/95 hover:bg-white text-slate-700 shadow-md border border-slate-200/80 transition backdrop-blur-xs hover:scale-105 active:scale-95"
-              title="Notifications"
-            >
-              <Bell className="w-4 h-4 text-slate-700" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-            </button>
-
-            {/* Profile Avatar "R" */}
-            <div className="w-9 h-9 rounded-full bg-[#101c38] border-2 border-white text-white font-bold text-sm flex items-center justify-center shadow-md">
-              R
-            </div>
-          </div>
         </div>
       </div>
     </header>
