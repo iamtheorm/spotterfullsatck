@@ -75,17 +75,20 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+    <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-md">
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
-        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-          Trip Dispatch Parameters
-        </span>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Trip Dispatch Setup
+          </span>
+        </div>
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-medium"
         >
-          <span>{isCollapsed ? "Expand" : "Collapse"}</span>
+          <span>{isCollapsed ? "Expand Form" : "Collapse"}</span>
           {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
       </div>
@@ -105,7 +108,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   value={origin}
                   onChange={(e) => setOrigin(e.target.value)}
                   placeholder="e.g. Chicago, IL"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
                 />
               </div>
 
@@ -128,7 +131,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="e.g. Dallas, TX"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
                 />
               </div>
             </div>
@@ -145,7 +148,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                 required
                 value={departureTime}
                 onChange={(e) => setDepartureTime(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
               />
             </div>
 
@@ -162,7 +165,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                 value={loadWeight}
                 onChange={(e) => setLoadWeight(e.target.value)}
                 placeholder="e.g. 34000"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
               />
             </div>
           </div>
@@ -195,7 +198,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-1 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-xs disabled:opacity-50"
+            className="w-full mt-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-sm disabled:opacity-50"
           >
             {isLoading ? (
               <>

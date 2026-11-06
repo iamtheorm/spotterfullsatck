@@ -13,8 +13,8 @@ html, body, #root {
 
 /* Custom modern scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: #f1f5f9;
@@ -27,15 +27,36 @@ html, body, #root {
   background: #94a3b8;
 }
 
-/* Leaflet map base styling */
+/* Leaflet container */
 .leaflet-container {
-  background-color: #e2e8f0 !important;
+  background-color: #e6ecf2 !important;
   font-family: inherit;
 }
 
-/* Desaturated clean terrain tiles (removes visual noise so risk markers and heatmaps pop) */
-.map-tiles-clean img.leaflet-tile {
-  filter: saturate(0.2) contrast(1.05) brightness(1.02);
+/* High-Level Positron Map Tile: Muted, low contrast, desaturated soft grey-blue */
+.map-tiles-positron img.leaflet-tile {
+  filter: grayscale(100%) contrast(1.08) brightness(1.05) opacity(0.9);
+}
+
+/* Satellite / Hybrid tile styling if toggled */
+.map-tiles-satellite img.leaflet-tile {
+  filter: contrast(1.1) brightness(0.95);
+}
+
+/* Hover Tooltip for Checkpoints: Dark glass pill HUD */
+.leaflet-tooltip.checkpoint-hover-tooltip {
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(10px) !important;
+  color: #f8fafc !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.2) !important;
+  padding: 6px 10px !important;
+  font-family: inherit;
+  font-size: 11px;
+}
+.leaflet-tooltip.checkpoint-hover-tooltip::before {
+  border-top-color: rgba(15, 23, 42, 0.94) !important;
 }
 
 /* Professional light popups */
@@ -43,7 +64,7 @@ html, body, #root {
   background: #ffffff !important;
   color: #0f172a !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 15px 30px -5px rgba(15, 23, 42, 0.18), 0 10px 15px -6px rgba(15, 23, 42, 0.1) !important;
   border: 1px solid #e2e8f0 !important;
   padding: 0.25rem !important;
 }

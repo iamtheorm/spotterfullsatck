@@ -1,16 +1,27 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   MapContainer,
   TileLayer,
   Polyline,
   CircleMarker,
-  Popup,
   Tooltip,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
 import { RouteOption, Checkpoint, CorridorData } from "../types";
-import { Wind, CloudRain, Snowflake, Clock, AlertTriangle } from "lucide-react";
+import {
+  Wind,
+  CloudRain,
+  Snowflake,
+  Clock,
+  Play,
+  Pause,
+  RotateCcw,
+  Flame,
+  Layers,
+  ShieldCheck,
+  Eye,
+} from "lucide-react";
 
 interface MapViewProps {
   routes: RouteOption[];
@@ -20,6 +31,10 @@ interface MapViewProps {
   onOpenModal: (cp: Checkpoint, routeName: string) => void;
   corridorData?: CorridorData;
   showHeatmap: boolean;
+  onToggleHeatmap: () => void;
+  forecastHour: number;
+  onHourChange: React.Dispatch<React.SetStateAction<number>> | ((hour: number) => void);
+  isLoadingCorridor?: boolean;
   selectedCheckpoint?: Checkpoint | null;
 }
 
@@ -38,7 +53,7 @@ const MapBoundsAdjuster: React.FC<{ routes: RouteOption[]; selectedRouteId: stri
 
     if (points.length > 0) {
       const bounds = L.latLngBounds(points);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 10 });
+      map.fitBounds(bounds, { padding: [55, 55], maxZoom: 10 });
     }
   }, [selectedRouteId, routes, map]);
 
@@ -53,17 +68,43 @@ export const MapView: React.FC<MapViewProps> = ({
   onOpenModal,
   corridorData,
   showHeatmap,
+  onToggleHeatmap,
+  forecastHour,
+  onHourChange,
+  isLoadingCorridor,
   selectedCheckpoint,
 }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
+
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
 
+  // Timeline auto-play
+  useEffect(() => {
+    let timer: any;
+    if (isPlaying) {
+      timer = setInterval(() => {
+        if (typeof onHourChange === "function") {
+          (onHourChange as React.Dispatch<React.SetStateAction<number>>)((prev: number) => {
+            if (prev >= 48) {
+              setIsPlaying(false);
+              return 48;
+            }
+            return prev + 3;
+          });
+        }
+      }, 1100);
+    }
+    return () => clearInterval(timer);
+  }, [isPlaying, onHourChange]);
+
   return (
-    <div className="relative w-full h-full rounded-xl overflow-hidden border border-slate-200 bg-slate-100 isolate z-0 flex flex-col shadow-xs">
-      {/* Top Floating Bar: Quick Route Switcher Tabs */}
+    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-sm">
+      {/* 1. TOP-LEFT HUD: Active Route Selection Tabs */}
       {routes && routes.length > 0 && (
-        <div className="absolute top-3 left-14 z-[400] flex flex-wrap items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-lg border border-slate-200 shadow-md pointer-events-auto">
-          <span className="text-[10px] font-bold text-slate-500 uppercase px-2 tracking-wider hidden sm:inline">
-            Route:
+        <div className="absolute top-3 left-14 z-[400] flex items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-md pointer-events-auto">
+          <span className="text-[10px] font-bold text-slate-400 uppercase px-2 tracking-wider hidden sm:inline">
+            Focus Path:
           </span>
           {routes.map((r) => {
             const isSelected = r.id === selectedRouteId;
@@ -72,21 +113,21 @@ export const MapView: React.FC<MapViewProps> = ({
                 key={r.id}
                 type="button"
                 onClick={() => onSelectRoute(r.id)}
-                className={`px-2.5 py-1 rounded text-xs font-semibold transition flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                   isSelected
                     ? r.is_recommended
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-blue-600 text-white shadow-xs"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "bg-blue-600 text-white shadow-2xs"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
                 <span>#{r.rank}</span>
-                <span className="font-normal truncate max-w-[120px]">
+                <span className="font-medium truncate max-w-[110px]">
                   {r.name.replace(" Corridor", "").replace(" Route", "")}
                 </span>
                 {r.is_recommended && (
-                  <span className="text-[10px] font-bold px-1 rounded bg-emerald-500/30 text-white">
-                    REC
+                  <span className="text-[9px] font-extrabold px-1 py-0.2 rounded bg-emerald-500/30 text-white">
+                    BEST
                   </span>
                 )}
               </button>
@@ -95,7 +136,36 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       )}
 
-      {/* Map Viewport */}
+      {/* 2. TOP-RIGHT HUD: Map Layer & Controls */}
+      <div className="absolute top-3 right-3 z-[400] flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-md pointer-events-auto text-xs">
+        <button
+          type="button"
+          onClick={onToggleHeatmap}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 ${
+            showHeatmap
+              ? "bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5 text-amber-500" />
+          <span>{showHeatmap ? "Heatmap Active" : "Heatmap"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIsSatellite(!isSatellite)}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1 ${
+            isSatellite
+              ? "bg-blue-50 text-blue-700 border border-blue-200"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>{isSatellite ? "Satellite" : "Positron"}</span>
+        </button>
+      </div>
+
+      {/* Leaflet Map Canvas */}
       <div className="w-full h-full flex-1">
         <MapContainer
           center={[39.8283, -98.5795]}
@@ -105,12 +175,16 @@ export const MapView: React.FC<MapViewProps> = ({
         >
           <MapBoundsAdjuster routes={routes} selectedRouteId={selectedRouteId} />
 
-          {/* Desaturated clean map tiles for maximum legibility */}
+          {/* Clean Positron (Desaturated Gray-Blue) vs Satellite Tile Layer */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url={
+              isSatellite
+                ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                : "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            }
             maxZoom={19}
-            className="map-tiles-clean"
+            className={isSatellite ? "map-tiles-satellite" : "map-tiles-positron"}
           />
 
           {/* 1. Weather Corridor Heatmap Layer */}
@@ -146,7 +220,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 2. Inactive Alternate Routes: Subdued Grey Dashed Tracks */}
+          {/* 2. Inactive Alternate Routes: Faded, Semi-Transparent Thin Grey-Blue Tracks */}
           {routes
             .filter((r) => r.id !== selectedRouteId)
             .map((route) => {
@@ -160,24 +234,24 @@ export const MapView: React.FC<MapViewProps> = ({
                     click: () => onSelectRoute(route.id),
                   }}
                   pathOptions={{
-                    color: "#94a3b8",
-                    weight: 3,
-                    opacity: 0.6,
-                    dashArray: "4, 6",
+                    color: "#64748b",
+                    weight: 2.5,
+                    opacity: 0.45,
+                    dashArray: "3, 6",
                     lineCap: "round",
                   }}
                 >
                   <Tooltip sticky direction="top" opacity={0.95}>
                     <div className="text-xs font-sans">
                       <span className="font-semibold text-slate-800">#{route.rank}: {route.name}</span>
-                      <div className="text-[11px] text-slate-500">{route.distance_miles} mi • Click to activate</div>
+                      <div className="text-[10px] text-slate-500">{route.distance_miles} mi • Click to focus</div>
                     </div>
                   </Tooltip>
                 </Polyline>
               );
             })}
 
-          {/* 3. Active Selected Route: High-Contrast Bold with Outer Glow */}
+          {/* 3. Selected/Recommended Focus Route: Thick 4px Solid Path with Vibrant Outer Glow */}
           {selectedRoute && (
             <>
               {/* Outer soft glow */}
@@ -190,12 +264,12 @@ export const MapView: React.FC<MapViewProps> = ({
                   lineCap: "round",
                 }}
               />
-              {/* Inner crisp line */}
+              {/* Inner solid 4px path */}
               <Polyline
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
                   color: selectedRoute.is_recommended ? "#16a34a" : "#2563eb",
-                  weight: 5,
+                  weight: 4.5,
                   opacity: 1.0,
                   lineCap: "round",
                 }}
@@ -203,7 +277,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 4. Checkpoints: ONLY rendered on the active route to eliminate visual clutter */}
+          {/* 4. Checkpoints: ONLY OVERLAID ON TOP OF THE SINGLE FOCUS PATH */}
           {selectedRoute &&
             selectedRoute.checkpoints.map((cp) => {
               const isTargeted = selectedCheckpoint && selectedCheckpoint.index === cp.index;
@@ -212,10 +286,10 @@ export const MapView: React.FC<MapViewProps> = ({
                 <CircleMarker
                   key={`cp-${selectedRoute.id}-${cp.index}`}
                   center={[cp.lat, cp.lon]}
-                  radius={isTargeted ? 7 : 5}
+                  radius={isTargeted ? 7.5 : 5.5}
                   eventHandlers={{
                     click: () => {
-                      if (onSelectCheckpoint) onSelectCheckpoint(cp);
+                      onOpenModal(cp, selectedRoute.name);
                     },
                   }}
                   pathOptions={{
@@ -225,95 +299,128 @@ export const MapView: React.FC<MapViewProps> = ({
                     weight: isTargeted ? 2.5 : 1.5,
                   }}
                 >
-                  <Popup className="custom-popup">
-                    <div className="p-1 min-w-[210px] text-slate-900 font-sans text-xs">
-                      <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
-                        <span className="font-bold text-slate-800">
-                          Mile {cp.mile_marker} Checkpoint
+                  {/* Instant Hover Popover HUD */}
+                  <Tooltip
+                    direction="top"
+                    offset={[0, -6]}
+                    opacity={1}
+                    className="checkpoint-hover-tooltip"
+                  >
+                    <div className="space-y-0.5 min-w-[190px]">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-1">
+                        <span className="font-bold text-white">
+                          CP #{cp.index + 1} • Mile {cp.mile_marker}
                         </span>
                         <span
-                          className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase"
-                          style={{
-                            backgroundColor: `${cp.color}15`,
-                            color: cp.color === "#1e1e24" ? "#dc2626" : cp.color,
-                            border: `1px solid ${cp.color}40`,
-                          }}
+                          className="text-[9px] font-extrabold uppercase px-1 rounded"
+                          style={{ backgroundColor: cp.color, color: "#ffffff" }}
                         >
                           {cp.final_level}
                         </span>
                       </div>
-
-                      <div className="space-y-1 text-slate-600 text-[11px]">
-                        <div className="flex items-center gap-1.5 text-slate-800 font-medium">
-                          <Clock className="w-3.5 h-3.5 text-blue-600" />
-                          <span>ETA: {cp.eta_formatted}</span>
+                      <div className="text-[10px] text-slate-300 pt-0.5">
+                        ETA: <strong className="text-white">{cp.eta_formatted}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-300 font-mono">
+                        Wind: {cp.weather.wind_mph}mph • Rain: {cp.weather.rain_in_per_hr} in/h
+                      </div>
+                      {cp.active_overrides && cp.active_overrides.length > 0 && (
+                        <div className="text-[9px] text-amber-300 font-bold">
+                          ⚡ Load Rule Override Active
                         </div>
-
-                        <div className="grid grid-cols-2 gap-1 pt-1 font-mono text-[11px] text-slate-700">
-                          <div className="flex items-center gap-1">
-                            <Wind className="w-3 h-3 text-cyan-600" />
-                            <span>{cp.weather.wind_mph} mph</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <CloudRain className="w-3 h-3 text-blue-600" />
-                            <span>{cp.weather.rain_in_per_hr} in/h</span>
-                          </div>
-                        </div>
-
-                        {cp.weather.snow_in_per_hr > 0 && (
-                          <div className="flex items-center gap-1 text-[11px] text-indigo-600">
-                            <Snowflake className="w-3 h-3" />
-                            <span>Snow: {cp.weather.snow_in_per_hr} in/h</span>
-                          </div>
-                        )}
-
-                        {cp.active_overrides && cp.active_overrides.length > 0 && (
-                          <div className="mt-1 pt-1 border-t border-slate-100 text-[10px] text-amber-700 flex items-start gap-1 font-semibold">
-                            <AlertTriangle className="w-3 h-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                            <span>Load Override Triggered</span>
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => onOpenModal(cp, selectedRoute.name)}
-                          className="w-full mt-2 py-1.5 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold transition shadow-xs"
-                        >
-                          Inspect Full Telemetry & Rules
-                        </button>
+                      )}
+                      <div className="text-[9px] text-slate-400 italic pt-0.5">
+                        Click for full telemetry modal
                       </div>
                     </div>
-                  </Popup>
+                  </Tooltip>
                 </CircleMarker>
               );
             })}
         </MapContainer>
       </div>
 
-      {/* Floating Bottom-Left Risk Legend */}
-      <div className="absolute bottom-3 left-3 z-[400] bg-white/95 backdrop-blur-md border border-slate-200 p-2.5 rounded-lg text-xs space-y-1.5 pointer-events-auto shadow-md">
-        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-          Risk Classification
+      {/* 3. BOTTOM-CENTER HUD: Sleek Floating Timeline Scrubber */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[400] w-[90%] max-w-xl bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xl pointer-events-auto flex items-center justify-between gap-3 text-xs">
+        {/* Playback Controls */}
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => setIsPlaying(!isPlaying)}
+            title={isPlaying ? "Pause timeline" : "Play forecast progression"}
+            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex-shrink-0 shadow-2xs"
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsPlaying(false);
+              (onHourChange as any)(0);
+            }}
+            title="Reset to departure time"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex-shrink-0 border border-slate-200"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="font-mono font-extrabold text-slate-900 min-w-[50px] text-xs">
+            +{forecastHour}h
+          </div>
         </div>
-        <div className="flex items-center space-x-2.5 font-mono text-[10px]">
+
+        {/* Compact Scrubber with Weather Indicators */}
+        <div className="flex-1 relative flex items-center mx-1">
+          <input
+            type="range"
+            min="0"
+            max="48"
+            step="1"
+            value={forecastHour}
+            onChange={(e) => {
+              setIsPlaying(false);
+              (onHourChange as any)(parseInt(e.target.value, 10));
+            }}
+            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+          />
+        </div>
+
+        {/* Forecast Timestamp Info */}
+        <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-600">
+          <span className="hidden sm:inline">
+            {corridorData?.valid_time_formatted || "Departure"}
+          </span>
+          {isLoadingCorridor && (
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
+          )}
+        </div>
+      </div>
+
+      {/* 4. BOTTOM-LEFT HUD: Minimalist Risk Legend */}
+      <div className="absolute bottom-4 left-3 z-[400] bg-white/95 backdrop-blur-md border border-slate-200 p-2 rounded-xl text-xs space-y-1 pointer-events-auto shadow-md hidden md:block">
+        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+          Risk Key
+        </div>
+        <div className="flex items-center space-x-2 font-mono text-[10px]">
           <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e]"></span>
-            <span className="text-slate-700">Low</span>
+            <span className="w-2 h-2 rounded-full bg-[#22c55e]"></span>
+            <span className="text-slate-600">Low</span>
           </div>
           <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
-            <span className="text-slate-700">Mod</span>
+            <span className="w-2 h-2 rounded-full bg-[#eab308]"></span>
+            <span className="text-slate-600">Mod</span>
           </div>
           <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
-            <span className="text-slate-700">High</span>
+            <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
+            <span className="text-slate-600">High</span>
           </div>
           <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
-            <span className="text-slate-700">Severe</span>
+            <span className="w-2 h-2 rounded-full bg-[#ef4444]"></span>
+            <span className="text-slate-600">Severe</span>
           </div>
           <div className="flex items-center space-x-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#1e1e24] border border-red-500"></span>
+            <span className="w-2 h-2 rounded-full bg-[#1e1e24] border border-red-500"></span>
             <span className="text-red-600 font-bold">No Travel</span>
           </div>
         </div>

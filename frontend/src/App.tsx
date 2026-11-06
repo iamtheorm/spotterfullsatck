@@ -4,7 +4,6 @@ import { InputPanel } from "./components/InputPanel";
 import { RouteCard } from "./components/RouteCard";
 import { RouteComparison } from "./components/RouteComparison";
 import { MapView } from "./components/MapView";
-import { ForecastSlider } from "./components/ForecastSlider";
 import { CheckpointModal } from "./components/CheckpointModal";
 import { RiskRulesDrawer } from "./components/RiskRulesDrawer";
 import {
@@ -152,16 +151,16 @@ export function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      {/* Top App Header */}
+      {/* Slim 5% App Header */}
       <Header
         onOpenRules={() => setIsRulesOpen(true)}
         onSelectPreset={handleSelectPreset}
       />
 
-      {/* Main Two-Panel Layout: Sidebar + Full Map */}
+      {/* Main Two-Panel Layout */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left Sidebar: Controls & Route Alternatives (Independent Scroll) */}
-        <aside className="w-full md:w-[380px] lg:w-[410px] shrink-0 border-r border-slate-200 bg-slate-50 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10 shadow-2xs">
+        {/* Left Sidebar: Trip Dispatch Parameters & Focus Route Cards */}
+        <aside className="w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-slate-200/90 bg-slate-50 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10 shadow-2xs">
           {/* Error Banner */}
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium">
@@ -190,7 +189,7 @@ export function App() {
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Alternative Routes ({evaluation.routes.length})
+                  Route Alternatives ({evaluation.routes.length})
                 </span>
                 <button
                   type="button"
@@ -219,39 +218,30 @@ export function App() {
           )}
         </aside>
 
-        {/* Right Main Panel: Pinned Interactive Map & Docked Timeline Slider */}
-        <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-100 p-3 gap-2.5">
-          {/* Leaflet Map (Takes All Available Space) */}
-          <div className="flex-1 relative w-full h-full min-h-0">
-            <MapView
-              routes={evaluation?.routes || []}
-              selectedRouteId={selectedRouteId}
-              onSelectRoute={(id) => {
-                setSelectedRouteId(id);
-                const r = evaluation?.routes.find((item) => item.id === id);
-                if (r) setSelectedRouteName(r.name);
-              }}
-              onSelectCheckpoint={(cp) => {
-                setSelectedCheckpoint(cp);
-              }}
-              onOpenModal={(cp, rName) => {
-                setSelectedCheckpoint(cp);
-                setSelectedRouteName(rName);
-              }}
-              corridorData={corridorData}
-              showHeatmap={showHeatmap}
-              selectedCheckpoint={selectedCheckpoint}
-            />
-          </div>
-
-          {/* Docked Forecast Slider at Bottom of Map */}
-          <ForecastSlider
-            forecastHour={forecastHour}
-            onHourChange={setForecastHour}
-            validTimeFormatted={corridorData?.valid_time_formatted}
+        {/* Right Main Map Canvas with Floating Overlays */}
+        <main className="flex-1 h-full overflow-hidden relative p-3">
+          <MapView
+            routes={evaluation?.routes || []}
+            selectedRouteId={selectedRouteId}
+            onSelectRoute={(id) => {
+              setSelectedRouteId(id);
+              const r = evaluation?.routes.find((item) => item.id === id);
+              if (r) setSelectedRouteName(r.name);
+            }}
+            onSelectCheckpoint={(cp) => {
+              setSelectedCheckpoint(cp);
+            }}
+            onOpenModal={(cp, rName) => {
+              setSelectedCheckpoint(cp);
+              setSelectedRouteName(rName);
+            }}
+            corridorData={corridorData}
             showHeatmap={showHeatmap}
             onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
+            forecastHour={forecastHour}
+            onHourChange={setForecastHour}
             isLoadingCorridor={isLoadingCorridor}
+            selectedCheckpoint={selectedCheckpoint}
           />
         </main>
       </div>
