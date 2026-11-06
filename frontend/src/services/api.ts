@@ -1,13 +1,28 @@
 import { EvaluationResponse, RouteEvaluationRequest, CorridorData } from "../types";
 
-// In development, target Django directly at http://localhost:8000/api with CORS enabled
-// In production, fallback to relative path /api
-const API_BASE =
-  (import.meta as any).env?.VITE_API_URL ||
-  (typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
-    ? "http://localhost:8000/api"
-    : "/api");
+// Dynamic API Base URL resolution:
+// 1. If VITE_API_URL is provided, format and use it
+// 2. In local browser development (localhost/127.0.0.1), direct to http://localhost:8000/api
+// 3. In production with reverse proxy, default to /api
+const getApiBase = () => {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (envUrl) {
+    const formatted = envUrl.startsWith("http") ? envUrl : `https://${envUrl}`;
+    return formatted.endsWith("/api")
+      ? formatted
+      : `${formatted.replace(/\/$/, "")}/api`;
+  }
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1")
+  ) {
+    return "http://localhost:8000/api";
+  }
+  return "/api";
+};
+
+const API_BASE = getApiBase();
 
 export async function evaluateRoutes(
   req: RouteEvaluationRequest

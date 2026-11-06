@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import {
-  Navigation,
-  ChevronDown,
-  ChevronUp,
+  MapPin,
+  Calendar,
+  Weight,
+  Send,
   Loader2,
   RotateCcw,
+  ChevronDown,
 } from "lucide-react";
 import { RouteEvaluationRequest } from "../types";
 
@@ -12,12 +14,14 @@ interface InputPanelProps {
   onEvaluate: (params: RouteEvaluationRequest) => void;
   isLoading: boolean;
   initialValues?: Partial<RouteEvaluationRequest>;
+  onReset?: () => void;
 }
 
 export const InputPanel: React.FC<InputPanelProps> = ({
   onEvaluate,
   isLoading,
   initialValues,
+  onReset,
 }) => {
   const [origin, setOrigin] = useState(initialValues?.origin || "Chicago, IL");
   const [destination, setDestination] = useState(
@@ -27,7 +31,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const getDefaultDeparture = () => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    d.setHours(8, 0, 0, 0);
+    d.setHours(2, 30, 0, 0);
     return d.toISOString().slice(0, 16);
   };
 
@@ -42,7 +46,6 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const [stepMiles, setStepMiles] = useState<number>(
     initialValues?.step_miles || 25
   );
-  const [isCollapsed, setIsCollapsed] = useState(false);
 
   React.useEffect(() => {
     if (initialValues?.origin) setOrigin(initialValues.origin);
@@ -68,94 +71,107 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     });
   };
 
-  const swapLocations = () => {
-    const temp = origin;
-    setOrigin(destination);
-    setDestination(temp);
+  const handleResetForm = () => {
+    setOrigin("Chicago, IL");
+    setDestination("Dallas, TX");
+    setDepartureTime(getDefaultDeparture());
+    setLoadWeight("34000");
+    setStepMiles(25);
+    if (onReset) onReset();
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-md">
-      <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
-        <div className="flex items-center space-x-1.5">
-          <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-            Trip Dispatch Setup
-          </span>
+    <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-sm">
+      {/* Header matching screenshot: Icon + Title + Reset Button */}
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+        <div className="flex items-center space-x-2">
+          <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+          </div>
+          <h2 className="text-sm font-bold text-slate-900 tracking-tight">
+            Trip Dispatch Parameters
+          </h2>
         </div>
+
         <button
           type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-medium"
+          onClick={handleResetForm}
+          className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition"
         >
-          <span>{isCollapsed ? "Expand Form" : "Collapse"}</span>
-          {isCollapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Reset</span>
         </button>
       </div>
 
-      {!isCollapsed && (
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Origin & Destination */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Origin Location
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={origin}
-                  onChange={(e) => setOrigin(e.target.value)}
-                  placeholder="e.g. Chicago, IL"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={swapLocations}
-                title="Swap origin and destination"
-                className="p-2 mt-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 transition"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-
-              <div className="flex-1">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Destination Location
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="e.g. Dallas, TX"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
-                />
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Origin Location & Destination Location */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Origin Location */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+              Origin Location
+            </label>
+            <div className="relative flex items-center">
+              <MapPin className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+              <input
+                type="text"
+                required
+                value={origin}
+                onChange={(e) => setOrigin(e.target.value)}
+                placeholder="e.g. Chicago, IL or Delhi, India"
+                className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
+              />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 pointer-events-none" />
             </div>
           </div>
 
-          {/* Departure Time & Load Weight */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Departure Time
-              </label>
+          {/* Destination Location */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+              Destination Location
+            </label>
+            <div className="relative flex items-center">
+              <MapPin className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+              <input
+                type="text"
+                required
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                placeholder="e.g. Dallas, TX or Kanpur, India"
+                className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
+              />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* Departure Time & Gross Load (lbs) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Departure Time */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+              Departure Time
+            </label>
+            <div className="relative flex items-center">
+              <Calendar className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
               <input
                 type="datetime-local"
                 required
                 value={departureTime}
                 onChange={(e) => setDepartureTime(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
+                className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
               />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 pointer-events-none" />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Gross Load (lbs)
-              </label>
+          {/* Gross Load (lbs) */}
+          <div>
+            <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+              Gross Load (lbs)
+            </label>
+            <div className="relative flex items-center">
+              <Weight className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
               <input
                 type="number"
                 min="1000"
@@ -164,70 +180,59 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                 required
                 value={loadWeight}
                 onChange={(e) => setLoadWeight(e.target.value)}
-                placeholder="e.g. 34000"
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
+                placeholder="34000"
+                className="w-full bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 font-medium focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs"
               />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-3 pointer-events-none" />
             </div>
           </div>
+        </div>
 
-          {/* Sampling Step */}
-          <div>
-            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 mb-1">
-              <span>Sampling Step</span>
-              <span className="font-mono text-blue-600 font-bold">Every {stepMiles} mi</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[10, 25, 50].map((interval) => (
+        {/* Sampling Step Pills matching screenshot */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
+            Sampling Step
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {[10, 25, 50].map((interval) => {
+              const isSelected = stepMiles === interval;
+              return (
                 <button
                   key={interval}
                   type="button"
                   onClick={() => setStepMiles(interval)}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition ${
-                    stepMiles === interval
-                      ? "bg-blue-50 text-blue-700 border-blue-500 shadow-2xs"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition ${
+                    isSelected
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-700"
                   }`}
                 >
                   {interval} mi
                 </button>
-              ))}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Action button */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full mt-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-sm disabled:opacity-50"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Evaluating 3 Routes...</span>
-              </>
-            ) : (
-              <>
-                <Navigation className="w-3.5 h-3.5" />
-                <span>Evaluate 3 Routes</span>
-              </>
-            )}
-          </button>
-        </form>
-      )}
-
-      {isCollapsed && (
-        <div className="flex items-center justify-between pt-1">
-          <div className="text-xs text-slate-700 truncate font-semibold">
-            {origin} → {destination} ({loadWeight} lbs)
-          </div>
-          <button
-            onClick={() => setIsCollapsed(false)}
-            className="text-xs text-blue-600 font-semibold hover:underline"
-          >
-            Edit
-          </button>
         </div>
-      )}
+
+        {/* Primary Action Button matching screenshot: "Evaluate 3 Routes →" */}
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-sm disabled:opacity-50"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+              <span>Evaluating 3 Routes...</span>
+            </>
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5 text-sky-400" />
+              <span>Evaluate 3 Routes →</span>
+            </>
+          )}
+        </button>
+      </form>
     </div>
   );
 };

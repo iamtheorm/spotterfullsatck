@@ -4,6 +4,7 @@ import {
   TileLayer,
   Polyline,
   CircleMarker,
+  Marker,
   Tooltip,
   useMap,
 } from "react-leaflet";
@@ -17,10 +18,12 @@ import {
   Play,
   Pause,
   RotateCcw,
-  Flame,
+  AlertTriangle,
+  Map,
   Layers,
-  ShieldCheck,
-  Eye,
+  CloudSun,
+  ChevronDown,
+  Crosshair,
 } from "lucide-react";
 
 interface MapViewProps {
@@ -29,6 +32,7 @@ interface MapViewProps {
   onSelectRoute: (id: string) => void;
   onSelectCheckpoint?: (cp: Checkpoint) => void;
   onOpenModal: (cp: Checkpoint, routeName: string) => void;
+  onOpenRules?: () => void;
   corridorData?: CorridorData;
   showHeatmap: boolean;
   onToggleHeatmap: () => void;
@@ -38,11 +42,31 @@ interface MapViewProps {
   selectedCheckpoint?: Checkpoint | null;
 }
 
+// Custom DivIcon for Origin and Destination Pins matching screenshot
+const createNamedMarkerIcon = (label: string, isOrigin: boolean) => {
+  return L.divIcon({
+    className: "custom-named-marker",
+    html: `
+      <div style="display: flex; align-items: center; gap: 6px; background: white; padding: 4px 10px; border-radius: 9999px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid ${
+        isOrigin ? "#10b981" : "#ef4444"
+      }; font-weight: 700; font-size: 11px; color: #0f172a; white-space: nowrap;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${
+          isOrigin ? "#10b981" : "#ef4444"
+        }; display: inline-block;"></span>
+        <span>${label}</span>
+      </div>
+    `,
+    iconSize: [100, 30],
+    iconAnchor: [50, 15],
+  });
+};
+
 // Smoothly pans and fits the map to the currently selected route
-const MapBoundsAdjuster: React.FC<{ routes: RouteOption[]; selectedRouteId: string }> = ({
-  routes,
-  selectedRouteId,
-}) => {
+const MapBoundsAdjuster: React.FC<{
+  routes: RouteOption[];
+  selectedRouteId: string;
+  triggerCenter?: number;
+}> = ({ routes, selectedRouteId, triggerCenter }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -53,9 +77,9 @@ const MapBoundsAdjuster: React.FC<{ routes: RouteOption[]; selectedRouteId: stri
 
     if (points.length > 0) {
       const bounds = L.latLngBounds(points);
-      map.fitBounds(bounds, { padding: [55, 55], maxZoom: 10 });
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
     }
-  }, [selectedRouteId, routes, map]);
+  }, [selectedRouteId, routes, map, triggerCenter]);
 
   return null;
 };
@@ -66,6 +90,7 @@ export const MapView: React.FC<MapViewProps> = ({
   onSelectRoute,
   onSelectCheckpoint,
   onOpenModal,
+  onOpenRules,
   corridorData,
   showHeatmap,
   onToggleHeatmap,
@@ -76,6 +101,8 @@ export const MapView: React.FC<MapViewProps> = ({
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  const [recenterCount, setRecenterCount] = useState(0);
+  const [isWeatherDropdownOpen, setIsWeatherDropdownOpen] = useState(false);
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
 
@@ -98,239 +125,317 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => clearInterval(timer);
   }, [isPlaying, onHourChange]);
 
+  // Extract start and end city labels
+  const startCoords = selectedRoute?.coordinates?.[0];
+  const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
+
+  const hasSevereWeather = selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
+
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-sm">
-      {/* 1. TOP-LEFT HUD: Active Route Selection Tabs */}
-      {routes && routes.length > 0 && (
-        <div className="absolute top-3 left-14 z-[400] flex items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-md pointer-events-auto">
-          <span className="text-[10px] font-bold text-slate-400 uppercase px-2 tracking-wider hidden sm:inline">
-            Focus Path:
-          </span>
-          {routes.map((r) => {
-            const isSelected = r.id === selectedRouteId;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => onSelectRoute(r.id)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
-                  isSelected
-                    ? r.is_recommended
-                      ? "bg-emerald-600 text-white shadow-2xs"
-                      : "bg-blue-600 text-white shadow-2xs"
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
-              >
-                <span>#{r.rank}</span>
-                <span className="font-medium truncate max-w-[110px]">
-                  {r.name.replace(" Corridor", "").replace(" Route", "")}
-                </span>
-                {r.is_recommended && (
-                  <span className="text-[9px] font-extrabold px-1 py-0.2 rounded bg-emerald-500/30 text-white">
-                    BEST
-                  </span>
-                )}
-              </button>
-            );
-          })}
+      {/* 1. TOP FLOATING HUD BAR matching screenshot */}
+      <div className="absolute top-3 left-3 right-3 z-[400] flex items-center justify-between pointer-events-none">
+        {/* Left Side: Map View (active navy) | Risk Overlay | Weather Layer */}
+        <div className="flex items-center space-x-2 pointer-events-auto bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-sm">
+          {/* Map View Pill */}
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+          >
+            <Map className="w-3.5 h-3.5 text-sky-400" />
+            <span>Map View</span>
+          </button>
+
+          {/* Risk Overlay Pill */}
+          <button
+            type="button"
+            onClick={onToggleHeatmap}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 ${
+              showHeatmap
+                ? "bg-blue-50 text-blue-700 border border-blue-200"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Risk Overlay</span>
+          </button>
+
+          {/* Weather Layer Dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsWeatherDropdownOpen(!isWeatherDropdownOpen)}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5"
+            >
+              <CloudSun className="w-3.5 h-3.5 text-amber-500" />
+              <span>Weather Layer</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+
+            {isWeatherDropdownOpen && (
+              <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSatellite(false);
+                    setIsWeatherDropdownOpen(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium ${
+                    !isSatellite ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Positron Light Map
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSatellite(true);
+                    setIsWeatherDropdownOpen(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium ${
+                    isSatellite ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Satellite Imagery
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* 2. TOP-RIGHT HUD: Map Layer & Controls */}
-      <div className="absolute top-3 right-3 z-[400] flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1 rounded-xl border border-slate-200 shadow-md pointer-events-auto text-xs">
+        {/* Right Side: Risk Legend matching screenshot */}
+        <div className="hidden sm:flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-medium text-slate-700">
+          <div className="flex items-center space-x-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span className="text-[11px] font-semibold text-slate-600">Low</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+            <span className="text-[11px] font-semibold text-slate-600">Mod</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+            <span className="text-[11px] font-semibold text-slate-600">High</span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+            <span className="text-[11px] font-semibold text-slate-600">Severe</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Recenter Crosshair Button on Top-Left below Leaflet Zoom */}
+      <div className="absolute top-28 left-3 z-[400] pointer-events-auto">
         <button
           type="button"
-          onClick={onToggleHeatmap}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1.5 ${
-            showHeatmap
-              ? "bg-amber-50 text-amber-800 border border-amber-300 shadow-2xs"
-              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-          }`}
+          onClick={() => setRecenterCount((c) => c + 1)}
+          title="Center on Route"
+          className="w-8 h-8 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-center text-slate-700 transition"
         >
-          <Flame className="w-3.5 h-3.5 text-amber-500" />
-          <span>{showHeatmap ? "Heatmap Active" : "Heatmap"}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setIsSatellite(!isSatellite)}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center gap-1 ${
-            isSatellite
-              ? "bg-blue-50 text-blue-700 border border-blue-200"
-              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-          }`}
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>{isSatellite ? "Satellite" : "Positron"}</span>
+          <Crosshair className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Leaflet Map Canvas */}
-      <div className="w-full h-full flex-1">
+      {/* 2. FLOATING BOTTOM-LEFT WEATHER ALERT CARD matching screenshot */}
+      <div className="absolute bottom-20 left-4 z-[400] pointer-events-auto max-w-sm">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-3 shadow-lg flex items-center space-x-3">
+          <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 text-red-500" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900">Weather Alert</span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              {hasSevereWeather
+                ? "Severe weather or high winds along your route"
+                : "Active corridor weather monitoring enabled"}
+            </p>
+          </div>
+          {onOpenRules && (
+            <button
+              type="button"
+              onClick={onOpenRules}
+              className="text-[11px] font-bold text-blue-600 hover:text-blue-800 whitespace-nowrap ml-1"
+            >
+              View Details →
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 3. LEAFLET MAP CANVAS */}
+      <div className="w-full h-full">
         <MapContainer
           center={[39.8283, -98.5795]}
-          zoom={5}
+          zoom={4}
+          scrollWheelZoom={true}
           className="w-full h-full"
           zoomControl={true}
         >
-          <MapBoundsAdjuster routes={routes} selectedRouteId={selectedRouteId} />
-
-          {/* Clean Positron (Desaturated Gray-Blue) vs Satellite Tile Layer */}
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url={
-              isSatellite
-                ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                : "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            }
-            maxZoom={19}
-            className={isSatellite ? "map-tiles-satellite" : "map-tiles-positron"}
+          <MapBoundsAdjuster
+            routes={routes}
+            selectedRouteId={selectedRouteId}
+            triggerCenter={recenterCount}
           />
 
-          {/* 1. Weather Corridor Heatmap Layer */}
+          {/* Positron Clean Desaturated Light Map Tiles */}
+          {!isSatellite ? (
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              className="map-tiles-positron"
+            />
+          ) : (
+            <TileLayer
+              attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              className="map-tiles-satellite"
+            />
+          )}
+
+          {/* 4. WEATHER CORRIDOR HEATMAP LAYER */}
           {showHeatmap && corridorData && corridorData.points && (
             <>
               {corridorData.points.map((pt, idx) => {
-                let fillColor = "#22c55e"; // Low
-                if (pt.intensity > 0.7) fillColor = "#dc2626"; // Severe / No Travel
-                else if (pt.intensity > 0.5) fillColor = "#ea580c"; // High
-                else if (pt.intensity > 0.3) fillColor = "#ca8a04"; // Moderate
+                const color =
+                  pt.risk_level === "No Travel"
+                    ? "#991b1b"
+                    : pt.risk_level === "Severe"
+                    ? "#ef4444"
+                    : pt.risk_level === "High"
+                    ? "#f97316"
+                    : pt.risk_level === "Moderate"
+                    ? "#facc15"
+                    : "#10b981";
 
                 return (
                   <CircleMarker
                     key={`corridor-pt-${idx}`}
                     center={[pt.lat, pt.lon]}
-                    radius={16}
+                    radius={14}
                     pathOptions={{
-                      fillColor: fillColor,
-                      fillOpacity: pt.intensity * 0.35,
-                      stroke: false,
+                      color: color,
+                      fillColor: color,
+                      fillOpacity: 0.22,
+                      weight: 0,
                     }}
-                  >
-                    <Tooltip direction="top" opacity={0.95}>
-                      <div className="text-[11px] font-sans">
-                        <div className="font-bold text-slate-900">{pt.risk_level} Hazard Zone</div>
-                        <div className="text-slate-600">Wind: {pt.wind_mph} mph</div>
-                        <div className="text-slate-600">Precip: {pt.rain_in_per_hr} in/hr</div>
-                      </div>
-                    </Tooltip>
-                  </CircleMarker>
+                  />
                 );
               })}
             </>
           )}
 
-          {/* 2. Inactive Alternate Routes: Faded, Semi-Transparent Thin Grey-Blue Tracks */}
+          {/* 5. INACTIVE ALTERNATIVE ROUTES: Subtle Faded Lines */}
           {routes
             .filter((r) => r.id !== selectedRouteId)
-            .map((route) => {
-              const latLngs: [number, number][] = route.coordinates.map(([lon, lat]) => [lat, lon]);
-
+            .map((r) => {
+              const coords: [number, number][] = r.coordinates.map(([lon, lat]) => [lat, lon]);
               return (
                 <Polyline
-                  key={`inactive-${route.id}`}
-                  positions={latLngs}
-                  eventHandlers={{
-                    click: () => onSelectRoute(route.id),
-                  }}
+                  key={`inactive-${r.id}`}
+                  positions={coords}
                   pathOptions={{
-                    color: "#64748b",
-                    weight: 2.5,
+                    color: "#94a3b8",
+                    weight: 3,
                     opacity: 0.45,
-                    dashArray: "3, 6",
-                    lineCap: "round",
+                    dashArray: "6, 8",
                   }}
-                >
-                  <Tooltip sticky direction="top" opacity={0.95}>
-                    <div className="text-xs font-sans">
-                      <span className="font-semibold text-slate-800">#{route.rank}: {route.name}</span>
-                      <div className="text-[10px] text-slate-500">{route.distance_miles} mi • Click to focus</div>
-                    </div>
-                  </Tooltip>
-                </Polyline>
+                  eventHandlers={{
+                    click: () => onSelectRoute(r.id),
+                  }}
+                />
               );
             })}
 
-          {/* 3. Selected/Recommended Focus Route: Thick 4px Solid Path with Vibrant Outer Glow */}
+          {/* 6. ACTIVE ROUTE POLYLINE: Glowing Emerald / Navy Focus Path */}
           {selectedRoute && (
             <>
-              {/* Outer soft glow */}
+              {/* Outer Glow Halo */}
               <Polyline
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
-                  color: selectedRoute.is_recommended ? "#4ade80" : "#60a5fa",
-                  weight: 10,
-                  opacity: 0.35,
-                  lineCap: "round",
+                  color: selectedRoute.is_recommended ? "#10b981" : "#3b82f6",
+                  weight: 8,
+                  opacity: 0.28,
                 }}
               />
-              {/* Inner solid 4px path */}
+              {/* Solid High-Visibility Path */}
               <Polyline
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
-                  color: selectedRoute.is_recommended ? "#16a34a" : "#2563eb",
+                  color: selectedRoute.is_recommended ? "#059669" : "#2563eb",
                   weight: 4.5,
-                  opacity: 1.0,
-                  lineCap: "round",
+                  opacity: 0.95,
+                  dashArray: "2, 4",
                 }}
               />
             </>
           )}
 
-          {/* 4. Checkpoints: ONLY OVERLAID ON TOP OF THE SINGLE FOCUS PATH */}
+          {/* 7. ORIGIN & DESTINATION LABELED MARKERS */}
+          {startCoords && (
+            <Marker
+              position={[startCoords[1], startCoords[0]]}
+              icon={createNamedMarkerIcon("Origin", true)}
+            />
+          )}
+          {endCoords && (
+            <Marker
+              position={[endCoords[1], endCoords[0]]}
+              icon={createNamedMarkerIcon("Destination", false)}
+            />
+          )}
+
+          {/* 8. CHECKPOINT DOTS: Single Focused Chain on Active Route Only */}
           {selectedRoute &&
+            selectedRoute.checkpoints &&
             selectedRoute.checkpoints.map((cp) => {
-              const isTargeted = selectedCheckpoint && selectedCheckpoint.index === cp.index;
+              const isSelected = selectedCheckpoint?.index === cp.index;
+              const color =
+                cp.final_level === "No Travel"
+                  ? "#991b1b"
+                  : cp.final_level === "Severe"
+                  ? "#ef4444"
+                  : cp.final_level === "High"
+                  ? "#f97316"
+                  : cp.final_level === "Moderate"
+                  ? "#facc15"
+                  : "#10b981";
 
               return (
                 <CircleMarker
-                  key={`cp-${selectedRoute.id}-${cp.index}`}
+                  key={`active-cp-${cp.index}`}
                   center={[cp.lat, cp.lon]}
-                  radius={isTargeted ? 7.5 : 5.5}
-                  eventHandlers={{
-                    click: () => {
-                      onOpenModal(cp, selectedRoute.name);
-                    },
-                  }}
+                  radius={isSelected ? 7 : 5}
                   pathOptions={{
-                    fillColor: cp.color,
+                    color: isSelected ? "#0f172a" : "#ffffff",
+                    fillColor: color,
                     fillOpacity: 1.0,
-                    color: isTargeted ? "#0f172a" : "#ffffff",
-                    weight: isTargeted ? 2.5 : 1.5,
+                    weight: isSelected ? 3 : 1.8,
+                  }}
+                  eventHandlers={{
+                    click: () => onOpenModal(cp, selectedRoute.name),
                   }}
                 >
-                  {/* Instant Hover Popover HUD */}
                   <Tooltip
                     direction="top"
-                    offset={[0, -6]}
-                    opacity={1}
+                    offset={[0, -8]}
+                    opacity={0.96}
                     className="checkpoint-hover-tooltip"
                   >
-                    <div className="space-y-0.5 min-w-[190px]">
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-700/80 pb-1">
-                        <span className="font-bold text-white">
-                          CP #{cp.index + 1} • Mile {cp.mile_marker}
-                        </span>
-                        <span
-                          className="text-[9px] font-extrabold uppercase px-1 rounded"
-                          style={{ backgroundColor: cp.color, color: "#ffffff" }}
-                        >
-                          {cp.final_level}
-                        </span>
+                    <div className="font-mono text-center">
+                      <div className="font-bold text-sky-400">
+                        CP #{cp.index} &bull; Mile {cp.mile_marker}
                       </div>
-                      <div className="text-[10px] text-slate-300 pt-0.5">
-                        ETA: <strong className="text-white">{cp.eta_formatted}</strong>
+                      <div className="text-[10px] text-slate-200 mt-0.5">
+                        ETA: {cp.eta_formatted}
                       </div>
-                      <div className="text-[10px] text-slate-300 font-mono">
-                        Wind: {cp.weather.wind_mph}mph • Rain: {cp.weather.rain_in_per_hr} in/h
+                      <div className="text-[10px] text-slate-300 mt-0.5">
+                        Wind: {cp.weather?.wind_mph} mph | Rain: {cp.weather?.rain_in_per_hr} in/h
                       </div>
-                      {cp.active_overrides && cp.active_overrides.length > 0 && (
-                        <div className="text-[9px] text-amber-300 font-bold">
-                          ⚡ Load Rule Override Active
-                        </div>
-                      )}
-                      <div className="text-[9px] text-slate-400 italic pt-0.5">
-                        Click for full telemetry modal
+                      <div className="mt-1 font-bold text-amber-300">
+                        Risk: {cp.final_level}
                       </div>
                     </div>
                   </Tooltip>
@@ -340,88 +445,54 @@ export const MapView: React.FC<MapViewProps> = ({
         </MapContainer>
       </div>
 
-      {/* 3. BOTTOM-CENTER HUD: Sleek Floating Timeline Scrubber */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[400] w-[90%] max-w-xl bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2.5 shadow-xl pointer-events-auto flex items-center justify-between gap-3 text-xs">
-        {/* Playback Controls */}
-        <div className="flex items-center space-x-2">
+      {/* 9. BOTTOM SCRUBBER OVERLAY: 0–48 Hour Evolution Timeline */}
+      <div className="absolute bottom-3 left-4 right-4 z-[400] flex justify-center pointer-events-none">
+        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-2 shadow-lg flex items-center space-x-3 pointer-events-auto max-w-xl w-full">
           <button
             type="button"
             onClick={() => setIsPlaying(!isPlaying)}
-            title={isPlaying ? "Pause timeline" : "Play forecast progression"}
-            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex-shrink-0 shadow-2xs"
+            className="p-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+            title={isPlaying ? "Pause" : "Play Timeline"}
           >
-            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 ml-0.5" />}
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           </button>
 
           <button
             type="button"
             onClick={() => {
               setIsPlaying(false);
-              (onHourChange as any)(0);
+              if (typeof onHourChange === "function") {
+                (onHourChange as React.Dispatch<React.SetStateAction<number>>)(0);
+              }
             }}
-            title="Reset to departure time"
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition flex-shrink-0 border border-slate-200"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
+            title="Reset to Departure"
           >
             <RotateCcw className="w-3.5 h-3.5" />
           </button>
 
-          <div className="font-mono font-extrabold text-slate-900 min-w-[50px] text-xs">
-            +{forecastHour}h
-          </div>
-        </div>
-
-        {/* Compact Scrubber with Weather Indicators */}
-        <div className="flex-1 relative flex items-center mx-1">
-          <input
-            type="range"
-            min="0"
-            max="48"
-            step="1"
-            value={forecastHour}
-            onChange={(e) => {
-              setIsPlaying(false);
-              (onHourChange as any)(parseInt(e.target.value, 10));
-            }}
-            className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-          />
-        </div>
-
-        {/* Forecast Timestamp Info */}
-        <div className="flex items-center space-x-2 text-[11px] font-mono text-slate-600">
-          <span className="hidden sm:inline">
-            {corridorData?.valid_time_formatted || "Departure"}
-          </span>
-          {isLoadingCorridor && (
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span>
-          )}
-        </div>
-      </div>
-
-      {/* 4. BOTTOM-LEFT HUD: Minimalist Risk Legend */}
-      <div className="absolute bottom-4 left-3 z-[400] bg-white/95 backdrop-blur-md border border-slate-200 p-2 rounded-xl text-xs space-y-1 pointer-events-auto shadow-md hidden md:block">
-        <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
-          Risk Key
-        </div>
-        <div className="flex items-center space-x-2 font-mono text-[10px]">
-          <div className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#22c55e]"></span>
-            <span className="text-slate-600">Low</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#eab308]"></span>
-            <span className="text-slate-600">Mod</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#f97316]"></span>
-            <span className="text-slate-600">High</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#ef4444]"></span>
-            <span className="text-slate-600">Severe</span>
-          </div>
-          <div className="flex items-center space-x-1">
-            <span className="w-2 h-2 rounded-full bg-[#1e1e24] border border-red-500"></span>
-            <span className="text-red-600 font-bold">No Travel</span>
+          <div className="flex-1 flex flex-col space-y-1">
+            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-sky-500" />
+                Corridor Forecast Evolution:
+              </span>
+              <span className="font-mono text-blue-600">+{forecastHour}h Offset</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="48"
+              step="3"
+              value={forecastHour}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                if (typeof onHourChange === "function") {
+                  (onHourChange as React.Dispatch<React.SetStateAction<number>>)(val);
+                }
+              }}
+              className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
+            />
           </div>
         </div>
       </div>

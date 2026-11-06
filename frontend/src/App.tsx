@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { InputPanel } from "./components/InputPanel";
 import { RouteCard } from "./components/RouteCard";
@@ -6,6 +7,7 @@ import { RouteComparison } from "./components/RouteComparison";
 import { MapView } from "./components/MapView";
 import { CheckpointModal } from "./components/CheckpointModal";
 import { RiskRulesDrawer } from "./components/RiskRulesDrawer";
+import { BottomActionBar } from "./components/BottomActionBar";
 import {
   EvaluationResponse,
   RouteEvaluationRequest,
@@ -13,7 +15,7 @@ import {
   CorridorData,
 } from "./types";
 import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
-import { AlertCircle, TableProperties } from "lucide-react";
+import { AlertCircle, Layers, Scale } from "lucide-react";
 
 export function App() {
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
@@ -28,6 +30,7 @@ export function App() {
 
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("home");
 
   // Corridor slider state
   const [forecastHour, setForecastHour] = useState<number>(0);
@@ -149,102 +152,131 @@ export function App() {
     };
   }, [forecastHour, evaluation]);
 
+  const activeRoute = evaluation?.routes?.find((r) => r.id === selectedRouteId) || evaluation?.routes?.[0];
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-slate-50 font-sans text-slate-900 overflow-hidden">
-      {/* Slim 5% App Header */}
+    <div className="h-screen w-screen flex flex-col bg-[#f4f7fb] font-sans text-slate-900 overflow-hidden">
+      {/* Top Header matching screenshot */}
       <Header
         onOpenRules={() => setIsRulesOpen(true)}
         onSelectPreset={handleSelectPreset}
       />
 
-      {/* Main Two-Panel Layout */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-        {/* Left Sidebar: Trip Dispatch Parameters & Focus Route Cards */}
-        <aside className="w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-slate-200/90 bg-slate-50 flex flex-col overflow-y-auto p-3.5 space-y-3 z-10 shadow-2xs">
-          {/* Error Banner */}
-          {error && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="text-red-700 hover:text-red-900 underline text-[11px]"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
+      {/* Main Workspace: Left Sidebar Rail + Center Content */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Slim Left Navigation Rail (Home, Routes, Analytics, History, Settings) */}
+        <Sidebar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onOpenRules={() => setIsRulesOpen(true)}
+        />
 
-          {/* Trip Dispatch Parameters Form */}
-          <InputPanel
-            onEvaluate={handleEvaluate}
-            isLoading={isLoading}
-            initialValues={formInputs}
-          />
-
-          {/* Route Alternatives List */}
-          {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Route Alternatives ({evaluation.routes.length})
-                </span>
+        {/* Center Panels: Trip Dispatch Parameters & Alternative Routes (Left) + Interactive Map (Right) */}
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-3 gap-3">
+          {/* Left Column: Form & Route Cards */}
+          <div className="w-full lg:w-[440px] xl:w-[470px] shrink-0 flex flex-col overflow-y-auto space-y-3 pr-1">
+            {/* Error Notification */}
+            {error && (
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium shadow-xs">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
                 <button
-                  type="button"
-                  onClick={() => setIsComparisonOpen(true)}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 transition"
+                  onClick={() => setError(null)}
+                  className="text-red-700 hover:text-red-900 underline text-[11px] font-semibold"
                 >
-                  <TableProperties className="w-3.5 h-3.5" />
-                  <span>Compare</span>
+                  Dismiss
                 </button>
               </div>
+            )}
 
-              <div className="space-y-2">
-                {evaluation.routes.map((route) => (
-                  <RouteCard
-                    key={route.id}
-                    route={route}
-                    isSelected={route.id === selectedRouteId}
-                    onSelect={() => {
-                      setSelectedRouteId(route.id);
-                      setSelectedRouteName(route.name);
-                    }}
-                  />
-                ))}
+            {/* Trip Dispatch Parameters Form */}
+            <InputPanel
+              onEvaluate={handleEvaluate}
+              isLoading={isLoading}
+              initialValues={formInputs}
+            />
+
+            {/* Alternative Routes (3) List */}
+            {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                {/* Header matching screenshot: Stack Icon + "Alternative Routes (3)" + "Compare" link */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center space-x-2">
+                    <Layers className="w-4 h-4 text-slate-700" />
+                    <span className="text-xs font-bold text-slate-900 tracking-tight">
+                      Alternative Routes ({evaluation.routes.length})
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsComparisonOpen(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1.5 transition"
+                  >
+                    <Scale className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Compare</span>
+                  </button>
+                </div>
+
+                {/* Route Cards */}
+                <div className="space-y-2.5">
+                  {evaluation.routes.map((route) => (
+                    <RouteCard
+                      key={route.id}
+                      route={route}
+                      isSelected={route.id === selectedRouteId}
+                      onSelect={() => {
+                        setSelectedRouteId(route.id);
+                        setSelectedRouteName(route.name);
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </aside>
+            )}
+          </div>
 
-        {/* Right Main Map Canvas with Floating Overlays */}
-        <main className="flex-1 h-full overflow-hidden relative p-3">
-          <MapView
-            routes={evaluation?.routes || []}
-            selectedRouteId={selectedRouteId}
-            onSelectRoute={(id) => {
-              setSelectedRouteId(id);
-              const r = evaluation?.routes.find((item) => item.id === id);
-              if (r) setSelectedRouteName(r.name);
-            }}
-            onSelectCheckpoint={(cp) => {
-              setSelectedCheckpoint(cp);
-            }}
-            onOpenModal={(cp, rName) => {
-              setSelectedCheckpoint(cp);
-              setSelectedRouteName(rName);
-            }}
-            corridorData={corridorData}
-            showHeatmap={showHeatmap}
-            onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
-            forecastHour={forecastHour}
-            onHourChange={setForecastHour}
-            isLoadingCorridor={isLoadingCorridor}
-            selectedCheckpoint={selectedCheckpoint}
-          />
-        </main>
+          {/* Right Column: Full Interactive Map Canvas */}
+          <div className="flex-1 h-full min-h-[420px] overflow-hidden relative">
+            <MapView
+              routes={evaluation?.routes || []}
+              selectedRouteId={selectedRouteId}
+              onSelectRoute={(id) => {
+                setSelectedRouteId(id);
+                const r = evaluation?.routes.find((item) => item.id === id);
+                if (r) setSelectedRouteName(r.name);
+              }}
+              onSelectCheckpoint={(cp) => {
+                setSelectedCheckpoint(cp);
+              }}
+              onOpenModal={(cp, rName) => {
+                setSelectedCheckpoint(cp);
+                setSelectedRouteName(rName);
+              }}
+              onOpenRules={() => setIsRulesOpen(true)}
+              corridorData={corridorData}
+              showHeatmap={showHeatmap}
+              onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
+              forecastHour={forecastHour}
+              onHourChange={setForecastHour}
+              isLoadingCorridor={isLoadingCorridor}
+              selectedCheckpoint={selectedCheckpoint}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Bottom Docked Summary Bar matching screenshot */}
+      <BottomActionBar
+        route={activeRoute}
+        onProceed={() => {
+          if (activeRoute) {
+            setIsComparisonOpen(true);
+          }
+        }}
+      />
 
       {/* Checkpoint Detail Telemetry Modal */}
       <CheckpointModal
@@ -274,4 +306,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

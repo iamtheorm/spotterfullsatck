@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock, Milestone, Flame, ShieldCheck } from "lucide-react";
+import { Clock, Navigation, Shield, CheckCircle2 } from "lucide-react";
 import { RouteOption } from "../types";
 
 interface RouteCardProps {
@@ -19,88 +19,114 @@ export const RouteCard: React.FC<RouteCardProps> = ({
   const hours = Math.floor(duration_hours);
   const minutes = Math.round((duration_hours - hours) * 60);
 
+  // Compute Low/Mod miles
+  const lowModMiles = Math.max(
+    0,
+    Math.round(distance_miles - (summary.severe_miles || 0) - (summary.high_miles || 0))
+  );
+
   return (
     <div
       onClick={onSelect}
-      className={`cursor-pointer rounded-xl p-3.5 transition border shadow-xs ${
+      className={`cursor-pointer rounded-2xl p-4 transition border shadow-xs select-none ${
         isSelected
           ? is_recommended
-            ? "bg-white border-slate-200 border-l-4 border-l-emerald-600 shadow-md ring-1 ring-emerald-500/20"
-            : "bg-white border-slate-200 border-l-4 border-l-blue-600 shadow-md ring-1 ring-blue-500/20"
-          : "bg-white border-slate-200/90 border-l-4 border-l-slate-300 hover:border-slate-300 hover:shadow-xs"
+            ? "bg-emerald-50/30 border-emerald-400 ring-2 ring-emerald-500/20 shadow-md"
+            : "bg-blue-50/30 border-blue-400 ring-2 ring-blue-500/20 shadow-md"
+          : "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-xs"
       }`}
     >
-      {/* Top Header */}
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center space-x-2">
+      {/* Top Row: Badge + Name + Recommended Pill */}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center space-x-2.5">
           <span
-            className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${
-              is_recommended
-                ? "bg-emerald-600 text-white"
-                : "bg-slate-100 text-slate-700 border border-slate-200"
+            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-2xs ${
+              is_recommended ? "bg-emerald-600" : "bg-blue-600"
             }`}
           >
             #{rank}
           </span>
-          <span className="text-xs font-bold text-slate-900 tracking-tight line-clamp-1">
+          <span className="text-xs font-bold text-slate-900 tracking-tight">
             {name}
           </span>
         </div>
 
         {is_recommended && (
-          <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200 uppercase tracking-wider">
-            <ShieldCheck className="w-3 h-3" />
+          <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
             <span>Recommended</span>
           </span>
         )}
       </div>
 
-      {/* No Travel Warning */}
-      {summary.has_no_travel && (
-        <div className="mb-2 px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-800 text-[11px] flex items-center gap-1.5 font-semibold">
-          <Flame className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
-          <span>{summary.no_travel_miles} mi in No-Travel conditions</span>
-        </div>
-      )}
+      {/* Main Content: 3 Stats on Left + Risk Mileage Table on Right */}
+      <div className="grid grid-cols-12 gap-2 items-center">
+        {/* Left Side: ETA, Distance, Avg Risk (8 cols) */}
+        <div className="col-span-8 flex items-center justify-between border-r border-slate-100 pr-3">
+          {/* ETA */}
+          <div>
+            <div className="flex items-center gap-1 text-slate-800 font-bold text-xs font-mono">
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
+              <span>{hours}h {minutes}m</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium ml-4">ETA</span>
+          </div>
 
-      {/* Key Metrics: Prominent Bold Typography */}
-      <div className="flex items-baseline justify-between py-1 mb-2 border-b border-slate-100">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-base font-extrabold text-slate-900 font-mono tracking-tight">
-            {hours}h {minutes}m
-          </span>
-          <span className="text-xs text-slate-400 font-medium">travel time</span>
-        </div>
+          {/* Distance */}
+          <div>
+            <div className="flex items-center gap-1 text-slate-800 font-bold text-xs font-mono">
+              <Navigation className="w-3.5 h-3.5 text-slate-500 rotate-45" />
+              <span>{distance_miles} mi</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium ml-4">Distance</span>
+          </div>
 
-        <div className="flex items-baseline gap-1">
-          <span className="text-sm font-bold text-slate-700 font-mono">
-            {distance_miles}
-          </span>
-          <span className="text-[11px] text-slate-400 font-medium">miles</span>
-        </div>
-      </div>
-
-      {/* Grouped Risk Stat Badges (Pills on Grid) */}
-      <div className="grid grid-cols-3 gap-1.5 text-center font-mono">
-        <div className="py-1 px-1.5 rounded-lg bg-red-50/50 border border-red-200/80">
-          <span className="text-red-700 text-[10px] block font-sans font-semibold">Severe</span>
-          <span className={`text-xs font-bold ${summary.severe_miles > 0 ? "text-red-700" : "text-slate-500"}`}>
-            {summary.severe_miles} mi
-          </span>
-        </div>
-
-        <div className="py-1 px-1.5 rounded-lg bg-amber-50/50 border border-amber-200/80">
-          <span className="text-amber-700 text-[10px] block font-sans font-semibold">High</span>
-          <span className={`text-xs font-bold ${summary.high_miles > 0 ? "text-amber-700" : "text-slate-500"}`}>
-            {summary.high_miles} mi
-          </span>
+          {/* Avg Risk */}
+          <div>
+            <div className="flex items-center gap-1 text-slate-800 font-bold text-xs">
+              <Shield className="w-3.5 h-3.5 text-slate-500" />
+              <span>Avg Risk</span>
+            </div>
+            <span className="text-[10px] font-bold text-slate-700 font-mono ml-4">
+              {summary.average_risk.toFixed(1)} / 5
+            </span>
+          </div>
         </div>
 
-        <div className="py-1 px-1.5 rounded-lg bg-emerald-50/50 border border-emerald-200/80">
-          <span className="text-emerald-700 text-[10px] block font-sans font-semibold">Avg Risk</span>
-          <span className="text-xs font-bold text-emerald-800">
-            {summary.average_risk.toFixed(1)}/5
-          </span>
+        {/* Right Side: Severe / High / Low-Mod Dots & Mileage (4 cols) */}
+        <div className="col-span-4 pl-1 space-y-1 font-mono text-[11px]">
+          {/* Severe */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5">
+              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+              <span className="text-[10px] text-slate-600 font-sans">Severe</span>
+            </div>
+            <span className={`font-semibold ${summary.severe_miles > 0 ? "text-red-600 font-bold" : "text-slate-500"}`}>
+              {summary.severe_miles} mi
+            </span>
+          </div>
+
+          {/* High */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span className="text-[10px] text-slate-600 font-sans">High</span>
+            </div>
+            <span className={`font-semibold ${summary.high_miles > 0 ? "text-amber-600 font-bold" : "text-slate-500"}`}>
+              {summary.high_miles} mi
+            </span>
+          </div>
+
+          {/* Low/Mod */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="text-[10px] text-slate-600 font-sans">Low/Mod</span>
+            </div>
+            <span className="text-slate-700 font-medium">
+              {lowModMiles} mi
+            </span>
+          </div>
         </div>
       </div>
     </div>
