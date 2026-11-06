@@ -13,17 +13,14 @@ import { RouteOption, Checkpoint, CorridorData } from "../types";
 import {
   Wind,
   CloudRain,
-  Snowflake,
-  Clock,
-  Play,
-  Pause,
-  RotateCcw,
   AlertTriangle,
   Map,
   Layers,
   CloudSun,
   ChevronDown,
   Crosshair,
+  Plus,
+  Minus,
 } from "lucide-react";
 
 interface MapViewProps {
@@ -89,11 +86,44 @@ const MapBoundsAdjuster: React.FC<{
 
     if (points.length > 0) {
       const bounds = L.latLngBounds(points);
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
+      map.fitBounds(bounds, { padding: [55, 55], maxZoom: 10 });
     }
   }, [selectedRouteId, routes, map, triggerCenter]);
 
   return null;
+};
+
+// External custom map zoom controls inside Leaflet context
+const MapControls: React.FC<{ onRecenter: () => void }> = ({ onRecenter }) => {
+  const map = useMap();
+  return (
+    <div className="absolute top-20 left-4 z-[400] flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-md overflow-hidden pointer-events-auto">
+      <button
+        type="button"
+        onClick={() => map.zoomIn()}
+        className="p-2 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
+        title="Zoom In"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => map.zoomOut()}
+        className="p-2 hover:bg-slate-100 text-slate-700 border-b border-slate-100 transition"
+        title="Zoom Out"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onRecenter}
+        className="p-2 hover:bg-slate-100 text-slate-700 transition"
+        title="Center on Route"
+      >
+        <Crosshair className="w-4 h-4" />
+      </button>
+    </div>
+  );
 };
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -113,7 +143,6 @@ export const MapView: React.FC<MapViewProps> = ({
   originName = "Chicago",
   destinationName = "Dallas",
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
   const [recenterCount, setRecenterCount] = useState(0);
   const [isWeatherDropdownOpen, setIsWeatherDropdownOpen] = useState(false);
@@ -123,36 +152,36 @@ export const MapView: React.FC<MapViewProps> = ({
   const originCity = originName ? originName.split(",")[0].trim() : "Origin";
   const destCity = destinationName ? destinationName.split(",")[0].trim() : "Destination";
 
-  // Timeline auto-play
-  useEffect(() => {
-    let timer: any;
-    if (isPlaying) {
-      timer = setInterval(() => {
-        if (typeof onHourChange === "function") {
-          (onHourChange as React.Dispatch<React.SetStateAction<number>>)((prev: number) => {
-            if (prev >= 48) {
-              setIsPlaying(false);
-              return 48;
-            }
-            return prev + 3;
-          });
-        }
-      }, 1100);
-    }
-    return () => clearInterval(timer);
-  }, [isPlaying, onHourChange]);
-
-  // Extract start and end city coordinates
   const startCoords = selectedRoute?.coordinates?.[0];
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
 
   const hasSevereWeather = selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
 
   return (
-    <div className="relative w-full h-full rounded-2xl md:rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-xs">
-      {/* 1. TOP FLOATING HUD BAR matching screenshot */}
+    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 isolate z-0 flex flex-col shadow-xs">
+      {/* 1. TOP FLOATING CONTROLS matching screenshot */}
       <div className="absolute top-3.5 left-3.5 right-3.5 z-[400] flex items-center justify-between pointer-events-none">
-        {/* Left Side: Map View (navy) | Risk Overlay | Weather Layer ⌄ */}
+        {/* Left Side: Risk Legend matching screenshot */}
+        <div className="flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-semibold text-slate-700">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Low</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Mod</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">High</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+            <span className="text-[11px] font-semibold text-slate-700">Severe</span>
+          </div>
+        </div>
+
+        {/* Right Side: Map View (navy) | Risk Overlay | Weather Layer ⌄ */}
         <div className="flex items-center space-x-2 pointer-events-auto bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-sm">
           {/* Map View Pill */}
           <button
@@ -190,7 +219,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </button>
 
             {isWeatherDropdownOpen && (
-              <div className="absolute top-full left-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-50">
+              <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-xl border border-slate-200 shadow-lg py-1 z-50">
                 <button
                   type="button"
                   onClick={() => {
@@ -219,42 +248,10 @@ export const MapView: React.FC<MapViewProps> = ({
             )}
           </div>
         </div>
-
-        {/* Right Side: Risk Legend with colored dots matching screenshot */}
-        <div className="hidden sm:flex items-center space-x-3 pointer-events-auto bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl border border-slate-200/90 shadow-sm text-xs font-medium text-slate-700">
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Low</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#eab308]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Mod</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">High</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
-            <span className="text-[11px] font-semibold text-slate-700">Severe</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Recenter Crosshair Button */}
-      <div className="absolute top-24 left-3.5 z-[400] pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => setRecenterCount((c) => c + 1)}
-          title="Center on Route"
-          className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-700 transition"
-        >
-          <Crosshair className="w-4 h-4" />
-        </button>
       </div>
 
       {/* 2. FLOATING BOTTOM-LEFT WEATHER ALERT CARD matching screenshot */}
-      <div className="absolute bottom-16 left-4 z-[400] pointer-events-auto max-w-sm">
+      <div className="absolute bottom-4 left-4 z-[400] pointer-events-auto max-w-sm">
         <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-3 shadow-md flex items-center space-x-3">
           <div className="w-8 h-8 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 flex-shrink-0">
             <AlertTriangle className="w-4 h-4 text-red-500" />
@@ -281,18 +278,6 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       </div>
 
-      {/* Layer switch button on bottom-right */}
-      <div className="absolute bottom-16 right-4 z-[400] pointer-events-auto">
-        <button
-          type="button"
-          onClick={() => setIsSatellite(!isSatellite)}
-          title="Toggle Satellite Base"
-          className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 shadow-sm flex items-center justify-center text-slate-700 transition"
-        >
-          <Layers className="w-4 h-4" />
-        </button>
-      </div>
-
       {/* 3. LEAFLET MAP CANVAS */}
       <div className="w-full h-full">
         <MapContainer
@@ -300,13 +285,15 @@ export const MapView: React.FC<MapViewProps> = ({
           zoom={4}
           scrollWheelZoom={true}
           className="w-full h-full"
-          zoomControl={true}
+          zoomControl={false}
         >
           <MapBoundsAdjuster
             routes={routes}
             selectedRouteId={selectedRouteId}
             triggerCenter={recenterCount}
           />
+
+          <MapControls onRecenter={() => setRecenterCount((c) => c + 1)} />
 
           {/* Positron Clean Soft Terrain Tiles */}
           {!isSatellite ? (
@@ -472,58 +459,6 @@ export const MapView: React.FC<MapViewProps> = ({
               );
             })}
         </MapContainer>
-      </div>
-
-      {/* 9. BOTTOM SCRUBBER OVERLAY: 0–48 Hour Evolution Timeline */}
-      <div className="absolute bottom-2 left-4 right-4 z-[400] flex justify-center pointer-events-none">
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-4 py-1.5 shadow-md flex items-center space-x-3 pointer-events-auto max-w-lg w-full">
-          <button
-            type="button"
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="p-1.5 rounded-lg bg-[#101c38] text-white hover:bg-slate-800 transition"
-            title={isPlaying ? "Pause" : "Play Timeline"}
-          >
-            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsPlaying(false);
-              if (typeof onHourChange === "function") {
-                (onHourChange as React.Dispatch<React.SetStateAction<number>>)(0);
-              }
-            }}
-            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition"
-            title="Reset to Departure"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-
-          <div className="flex-1 flex flex-col space-y-0.5">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-sky-500" />
-                Forecast Evolution:
-              </span>
-              <span className="font-mono text-blue-600">+{forecastHour}h</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="48"
-              step="3"
-              value={forecastHour}
-              onChange={(e) => {
-                const val = parseInt(e.target.value);
-                if (typeof onHourChange === "function") {
-                  (onHourChange as React.Dispatch<React.SetStateAction<number>>)(val);
-                }
-              }}
-              className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 rounded-lg"
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
