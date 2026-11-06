@@ -42,8 +42,6 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const [stepMiles, setStepMiles] = useState<number>(
     initialValues?.step_miles || 25
   );
-  const [orsApiKey, setOrsApiKey] = useState("");
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   React.useEffect(() => {
@@ -67,7 +65,6 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       departure_time: depIso,
       load_weight: parsedWeight,
       step_miles: stepMiles,
-      ors_api_key: orsApiKey.trim() || undefined,
     });
   };
 
@@ -194,34 +191,11 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             </div>
           </div>
 
-          {/* Advanced ORS key */}
-          <div className="pt-0.5">
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1 font-medium transition"
-            >
-              <span>ORS Key Override</span>
-              {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-            {showAdvanced && (
-              <div className="mt-1.5">
-                <input
-                  type="password"
-                  value={orsApiKey}
-                  onChange={(e) => setOrsApiKey(e.target.value)}
-                  placeholder="Leave empty to use active .env key"
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Action button */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-xs disabled:opacity-50"
+            className="w-full mt-1 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition flex items-center justify-center space-x-2 shadow-xs disabled:opacity-50"
           >
             {isLoading ? (
               <>
