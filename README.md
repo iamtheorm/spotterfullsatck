@@ -25,7 +25,7 @@ Built with **Django REST Framework (DRF)** on the backend and **React (Vite + Ty
 
 ## 🌟 Key Features
 
-1. **Multi-Alternative Route Generation**: Generates 3 distinct route corridors between any origin and destination.
+1. **Multi-Alternative Route Generation**: Generates 3 distinct route corridors between any origin and destination worldwide (including major US interstate freight corridors and Indian national expressways like Delhi → Kanpur and Delhi → Lucknow).
 2. **Deterministic Checkpoint Discretization**: Samples geographic checkpoints strictly every **10, 25, or 50 miles** along each route polyline.
 3. **Accurate Timestamp ETAs**: Calculates arrival time ($T_{arr} = T_{dep} + \Delta t_i$) for every single checkpoint using cumulative segment distance and driving duration.
 4. **ETA-Specific Weather Forecasting**: Fetches wind speed (mph), rain rate (in/hr), and snowfall rate (in/hr) matching the exact arrival hour at each checkpoint via **Open-Meteo**.
@@ -34,7 +34,7 @@ Built with **Django REST Framework (DRF)** on the backend and **React (Vite + Ty
    - Wind $45\text{--}54\text{ mph}$ with Load Weight $> 30{,}000\text{ lbs}$ $\implies$ **No Travel**.
    - Wind $35\text{--}44\text{ mph}$ with Load Weight $> 40{,}000\text{ lbs}$ $\implies$ **Severe**.
 6. **Multi-Criteria Route Ranking**: Automatically sorts and identifies the safest route using strict hierarchical safety prioritization.
-7. **Interactive Map & Heatmap Corridor**: High-contrast dark navigation map showing colored checkpoint hazard markers, route polylines, telemetry modal, and an interactive **0–48 hour forecast evolution slider**.
+7. **Enterprise Dispatch UI & Interactive Map**: High-contrast Positron navigation map with glowing recommended route, single-chain checkpoint hierarchy, floating HUDs, quick presets, and an interactive **0–48 hour forecast evolution scrubber**.
 8. **Resilient Dual-Routing & Keyless Out-of-the-Box Operation**: Zero external API key dependencies required for immediate local testing, with optional **OpenRouteService (ORS)** API key support.
 
 ---
@@ -160,11 +160,13 @@ The top-ranked route is tagged as `is_recommended: true` and rendered with a dis
 │       ├── types/index.ts         # TypeScript definitions
 │       ├── services/api.ts        # Backend REST API client
 │       └── components/
-│           ├── Header.tsx         # App bar with quick presets & status
-│           ├── InputPanel.tsx     # Dispatch parameters form
-│           ├── RouteCard.tsx      # Alternative route summary cards
+│           ├── Sidebar.tsx        # Left navigation rail with brand & promo
+│           ├── Header.tsx         # Panoramic truck banner with window tabs
+│           ├── InputPanel.tsx     # Dispatch parameters form & preset controls
+│           ├── RouteCard.tsx      # Alternative route summary cards with risk matrix
 │           ├── RouteComparison.tsx# Side-by-side decision matrix
 │           ├── MapView.tsx        # Leaflet interactive map with custom layers
+│           ├── BottomActionBar.tsx# Sticky bottom summary bar with proceed action
 │           ├── ForecastSlider.tsx # 0-48 hour interactive playback slider
 │           ├── CheckpointModal.tsx# Telemetry popup with active overrides
 │           └── RiskRulesDrawer.tsx# Risk rule specification guide
