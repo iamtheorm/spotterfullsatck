@@ -58,11 +58,16 @@ def parse_closest_hourly_weather(
                 continue
 
     winds = hourly_data.get("wind_speed_10m", [])
+    gusts = hourly_data.get("wind_gusts_10m", [])
     rains = hourly_data.get("rain", [])
     precips = hourly_data.get("precipitation", [])
     snows = hourly_data.get("snowfall", [])
 
-    wind_val = float(winds[best_idx]) if best_idx < len(winds) and winds[best_idx] is not None else 10.0
+    base_wind = float(winds[best_idx]) if best_idx < len(winds) and winds[best_idx] is not None else 10.0
+    gust_wind = float(gusts[best_idx]) if best_idx < len(gusts) and gusts[best_idx] is not None else base_wind
+
+    # Effective hazardous crosswind for freight safety: peak gust velocity
+    wind_val = max(base_wind, gust_wind)
     
     # Check rain rate
     rain_val = 0.0
@@ -209,7 +214,7 @@ def fetch_weather_for_checkpoints(
         params = {
             "latitude": ",".join(lats),
             "longitude": ",".join(lons),
-            "hourly": "wind_speed_10m,precipitation,rain,snowfall",
+            "hourly": "wind_speed_10m,wind_gusts_10m,precipitation,rain,snowfall",
             "wind_speed_unit": "mph",
             "precipitation_unit": "inch",
             "forecast_days": 10,

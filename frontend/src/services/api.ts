@@ -19,7 +19,8 @@ const getApiBase = () => {
   ) {
     return "http://localhost:8000/api";
   }
-  return "/api";
+  // Production default fallback to live Render backend
+  return "https://spotterfullsatck.onrender.com/api";
 };
 
 const API_BASE = getApiBase();
