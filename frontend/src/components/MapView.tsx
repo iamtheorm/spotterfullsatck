@@ -23,8 +23,60 @@ import {
   Crosshair,
   Volume2,
   ChevronDown,
+  Box,
+  Compass,
+  Check,
+  Mountain,
 } from "lucide-react";
 import { playTruckAirHorn } from "../utils/audio";
+
+export type MapViewStyle = "positron" | "terrain" | "satellite" | "dark" | "osm";
+
+interface MapViewOption {
+  id: MapViewStyle;
+  name: string;
+  category: string;
+  icon: string;
+  description: string;
+}
+
+const MAP_VIEW_OPTIONS: MapViewOption[] = [
+  {
+    id: "positron",
+    name: "Clean Dispatch",
+    category: "Carto Positron",
+    icon: "🏙️",
+    description: "Soft contrast terrain optimized for route and heatmap clarity",
+  },
+  {
+    id: "terrain",
+    name: "Topographic Terrain",
+    category: "Esri / USGS Topo",
+    icon: "⛰️",
+    description: "Shaded mountain relief, elevation curves, and topography",
+  },
+  {
+    id: "satellite",
+    name: "Satellite Hybrid",
+    category: "High-Res Aerial",
+    icon: "🛰️",
+    description: "Photorealistic earth imagery with highway boundaries",
+  },
+  {
+    id: "dark",
+    name: "Night Operations",
+    category: "Dark Matter",
+    icon: "🌙",
+    description: "Midnight dark mode making severe risk markers glow vividly",
+  },
+  {
+    id: "osm",
+    name: "Street Navigation",
+    category: "OpenStreetMap",
+    icon: "🗺️",
+    description: "Standard road atlas showing junctions and regional exits",
+  },
+];
 
 interface MapViewProps {
   routes: RouteOption[];
@@ -94,13 +146,11 @@ const createMovingTruckIcon = (headingDeg: number = 0) => {
     className: "custom-animated-truck-marker",
     html: `
       <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; transform: rotate(${headingDeg}deg); transition: transform 0.2s ease-out;">
-        <!-- Amber Headlight Beam radiating forward -->
         <div style="position: absolute; right: -26px; top: 10px; width: 36px; height: 24px; background: radial-gradient(ellipse at left, rgba(253, 224, 71, 0.9) 0%, rgba(253, 224, 71, 0) 80%); border-radius: 50%; pointer-events: none;"></div>
-        <!-- Truck Cab & Trailer Icon Container -->
         <div style="width: 36px; height: 36px; background: #0f172a; border: 2.5px solid #38bdf8; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.5); color: white;">
           <svg style="width: 20px; height: 20px; color: #38bdf8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="1" y="3" width="15" height="13"></rect>
-            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
             <circle cx="5.5" cy="18.5" r="2.5"></circle>
             <circle cx="18.5" cy="18.5" r="2.5"></circle>
           </svg>
@@ -161,14 +211,19 @@ export const MapView: React.FC<MapViewProps> = ({
   originName = "Chicago",
   destinationName = "Dallas",
 }) => {
-  const [isSatellite, setIsSatellite] = useState(false);
+  // Map View Mode: Positron, 3D Topo Terrain, Satellite Hybrid, Night Ops, OSM Streets
+  const [mapStyle, setMapStyle] = useState<MapViewStyle>("positron");
+
+  // 3D Perspective Tilt Mode State
+  const [is3DMode, setIs3DMode] = useState<boolean>(false);
+
   const [showCheckpoints, setShowCheckpoints] = useState(true);
   const [recenterCount, setRecenterCount] = useState(0);
   const [isLayersMenuOpen, setIsLayersMenuOpen] = useState(false);
 
   // Simulation State: requestAnimationFrame Animation Loop
   const [isPlaying, setIsPlaying] = useState(false);
-  const [simProgress, setSimProgress] = useState(0); // 0.0 to 1.0 along route polyline
+  const [simProgress, setSimProgress] = useState(0);
   const [activePopoverCP, setActivePopoverCP] = useState<Checkpoint | null>(null);
 
   // Pending checkpoints that haven't triggered the air horn yet
@@ -267,7 +322,7 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, [isPlaying, selectedRoute]);
 
-  // Proximity Checkpoint Trigger: Checkpoint within ~3500m / proximate path
+  // Proximity Checkpoint Trigger: Checkpoint within proximity
   useEffect(() => {
     if (!isPlaying || !truckState || pendingCheckpoints.length === 0) return;
 
@@ -275,20 +330,13 @@ export const MapView: React.FC<MapViewProps> = ({
       const cp = pendingCheckpoints[i];
       const dist = getDistanceMeters(truckState.lat, truckState.lon, cp.lat, cp.lon);
 
-      // Trigger air horn & popover when truck is near checkpoint
       if (dist < 8000) {
-        // 1. Execute pneumatic Class 8 truck air horn audio
         playTruckAirHorn();
-
-        // 2. Display checkpoint risk popover briefly
         setActivePopoverCP(cp);
-
-        // 3. Shift this checkpoint out of pending array so it does NOT trigger twice
         setPendingCheckpoints((prev) =>
           prev.filter((item) => item.index !== cp.index)
         );
 
-        // Auto-dismiss popover after 3.2 seconds
         setTimeout(() => {
           setActivePopoverCP((current) =>
             current?.index === cp.index ? null : current
@@ -301,9 +349,23 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [truckState, isPlaying, pendingCheckpoints]);
 
   return (
-    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 flex flex-col shadow-xs isolate">
-      {/* 1. LEAFLET MAP CANVAS */}
-      <div className="w-full h-full relative z-0">
+    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-900 flex flex-col shadow-xs isolate">
+      {/* 3D Atmospheric Horizon Glow when 3D Mode is Active */}
+      {is3DMode && (
+        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-sky-950/70 via-sky-900/20 to-transparent pointer-events-none z-10" />
+      )}
+
+      {/* 1. LEAFLET MAP CANVAS WITH DYNAMIC 3D PERSPECTIVE TRANSFORM */}
+      <div
+        className="w-full h-full relative z-0 transition-transform duration-700 ease-out origin-bottom"
+        style={
+          is3DMode
+            ? {
+                transform: "perspective(1100px) rotateX(28deg) translateY(-2%) scale(1.05)",
+              }
+            : undefined
+        }
+      >
         <MapContainer
           center={[39.8283, -98.5795]}
           zoom={4}
@@ -322,18 +384,53 @@ export const MapView: React.FC<MapViewProps> = ({
             onZoomOut={(fn) => { zoomOutRef.current = fn; }}
           />
 
-          {/* Positron Clean Soft Terrain Tiles or Satellite */}
-          {!isSatellite ? (
+          {/* DYNAMIC BASE MAP TILE LAYERS */}
+          {/* 1. Clean Dispatch (Positron) */}
+          {mapStyle === "positron" && (
+            <TileLayer
+              attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              className="map-tiles-positron"
+            />
+          )}
+
+          {/* 2. 3D Topographic Terrain (Shaded Mountain Relief & Elevation) */}
+          {mapStyle === "terrain" && (
+            <TileLayer
+              attribution='&copy; Esri &mdash; National Geographic, Esri, USGS, NASA, METI, NRCAN'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+              className="map-tiles-terrain"
+            />
+          )}
+
+          {/* 3. Satellite Imagery with Road & Boundary Labels */}
+          {mapStyle === "satellite" && (
+            <>
+              <TileLayer
+                attribution='&copy; Esri, Maxar, Earthstar Geographics'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+              <TileLayer
+                attribution='&copy; Esri'
+                url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                opacity={0.88}
+              />
+            </>
+          )}
+
+          {/* 4. Night Operations (Dark Matter) */}
+          {mapStyle === "dark" && (
+            <TileLayer
+              attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+          )}
+
+          {/* 5. Standard Streets (OpenStreetMap) */}
+          {mapStyle === "osm" && (
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              className="map-tiles-positron"
-            />
-          ) : (
-            <TileLayer
-              attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye'
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              className="map-tiles-satellite"
             />
           )}
 
@@ -360,7 +457,7 @@ export const MapView: React.FC<MapViewProps> = ({
                     pathOptions={{
                       color: color,
                       fillColor: color,
-                      fillOpacity: 0.28,
+                      fillOpacity: mapStyle === "dark" ? 0.38 : 0.28,
                       weight: 0,
                     }}
                   />
@@ -379,7 +476,7 @@ export const MapView: React.FC<MapViewProps> = ({
                   key={`inactive-${r.id}`}
                   positions={coords}
                   pathOptions={{
-                    color: "#94a3b8",
+                    color: mapStyle === "dark" ? "#64748b" : "#94a3b8",
                     weight: 3,
                     opacity: 0.45,
                     dashArray: "6, 8",
@@ -399,7 +496,7 @@ export const MapView: React.FC<MapViewProps> = ({
                 pathOptions={{
                   color: "#22c55e",
                   weight: 8,
-                  opacity: 0.3,
+                  opacity: mapStyle === "dark" ? 0.45 : 0.3,
                 }}
               />
               <Polyline
@@ -503,9 +600,30 @@ export const MapView: React.FC<MapViewProps> = ({
       {/* 8. CONSOLIDATED MAP CONTROLS HUD (Pinned Top-Right Corner) */}
       <div className="absolute top-4 right-4 z-[1000] pointer-events-auto">
         <div className="flex items-center space-x-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-md text-xs">
+          {/* 3D Perspective Tilt Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next3D = !is3DMode;
+              setIs3DMode(next3D);
+              if (next3D && mapStyle === "positron") {
+                setMapStyle("terrain"); // Automatically pair with Topo Terrain in 3D mode
+              }
+            }}
+            className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+              is3DMode
+                ? "bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300 animate-pulse"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+            }`}
+            title={is3DMode ? "Switch to 2D Top-Down View" : "Switch to 3D Perspective Flight View"}
+          >
+            <Box className="w-3.5 h-3.5 text-indigo-400" />
+            <span>{is3DMode ? "3D Active" : "3D Mode"}</span>
+          </button>
+
           {/* Simulation Toggle: Play Route / Pause Route */}
           {selectedRoute && selectedRoute.checkpoints?.length > 0 && (
-            <div className="flex items-center space-x-1 pr-1 border-r border-slate-200">
+            <div className="flex items-center space-x-1 px-1 border-x border-slate-200">
               <button
                 type="button"
                 onClick={() => setIsPlaying(!isPlaying)}
@@ -540,84 +658,133 @@ export const MapView: React.FC<MapViewProps> = ({
             </div>
           )}
 
-          {/* Consolidated Layers Dropdown Menu */}
+          {/* Consolidated Layers & Map Views Menu */}
           <div className="relative">
             <button
               type="button"
               onClick={() => setIsLayersMenuOpen(!isLayersMenuOpen)}
-              className="px-3 py-1.5 rounded-xl font-bold text-slate-700 hover:bg-slate-100 transition flex items-center gap-1.5"
-              title="Map & Overlay Layer Controls"
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                isLayersMenuOpen ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-100"
+              }`}
+              title="Select Base Maps & Layer Overlays"
             >
               <Layers className="w-3.5 h-3.5 text-blue-600" />
-              <span>Layers</span>
+              <span>Views</span>
               <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
+            {/* Dropdown Menu for Base Maps & Overlays */}
             {isLayersMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-52 bg-white rounded-2xl border border-slate-200 shadow-xl py-2 z-[1100] text-xs">
-                {/* Base Map Toggle */}
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Base Map
+              <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 z-[1100] text-xs">
+                {/* 1. Base Map Views */}
+                <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Base Map Views</span>
+                  <Compass className="w-3 h-3 text-slate-400" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSatellite(false);
-                    setIsLayersMenuOpen(false);
-                  }}
-                  className={`w-full px-3 py-1.5 text-left font-semibold transition ${
-                    !isSatellite ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  Positron Terrain
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSatellite(true);
-                    setIsLayersMenuOpen(false);
-                  }}
-                  className={`w-full px-3 py-1.5 text-left font-semibold transition ${
-                    isSatellite ? "bg-blue-50 text-blue-700 font-bold" : "text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  Satellite Imagery
-                </button>
 
-                <div className="my-1 border-t border-slate-100"></div>
+                <div className="space-y-1 mt-1">
+                  {MAP_VIEW_OPTIONS.map((opt) => {
+                    const isSelected = mapStyle === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => {
+                          setMapStyle(opt.id);
+                          setIsLayersMenuOpen(false);
+                        }}
+                        className={`w-full px-2.5 py-2 rounded-xl text-left flex items-start justify-between transition ${
+                          isSelected
+                            ? "bg-blue-50 text-blue-900 border border-blue-200"
+                            : "hover:bg-slate-50 text-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-start space-x-2">
+                          <span className="text-base mt-0.5">{opt.icon}</span>
+                          <div>
+                            <div className="font-bold text-xs flex items-center gap-1">
+                              <span>{opt.name}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">
+                                ({opt.category})
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 leading-tight">
+                              {opt.description}
+                            </div>
+                          </div>
+                        </div>
 
-                {/* Overlays Toggle */}
-                <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Overlays
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-blue-600 shrink-0 mt-1" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onToggleHeatmap()}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <CloudSun className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Weather Heatmap</span>
-                  </span>
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      showHeatmap ? "bg-emerald-500" : "bg-slate-300"
-                    }`}
-                  ></span>
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowCheckpoints(!showCheckpoints)}
-                  className="w-full px-3 py-1.5 text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
-                >
-                  <span>Risk Checkpoints</span>
-                  <span
-                    className={`w-2 h-2 rounded-full ${
-                      showCheckpoints ? "bg-emerald-500" : "bg-slate-300"
-                    }`}
-                  ></span>
-                </button>
+                <div className="my-2 border-t border-slate-100"></div>
+
+                {/* 2. Perspective & Overlays */}
+                <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                  Perspective & Overlays
+                </div>
+
+                <div className="space-y-1">
+                  {/* 3D Tilt Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !is3DMode;
+                      setIs3DMode(next);
+                      if (next && mapStyle === "positron") setMapStyle("terrain");
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <Box className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>3D Perspective Tilt</span>
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        is3DMode ? "bg-indigo-600 ring-2 ring-indigo-200" : "bg-slate-300"
+                      }`}
+                    ></span>
+                  </button>
+
+                  {/* Weather Heatmap Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => onToggleHeatmap()}
+                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <CloudSun className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Weather Thermal Heatmap</span>
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        showHeatmap ? "bg-emerald-500 ring-2 ring-emerald-200" : "bg-slate-300"
+                      }`}
+                    ></span>
+                  </button>
+
+                  {/* Risk Checkpoints Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCheckpoints(!showCheckpoints)}
+                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                      <span>Risk Checkpoints</span>
+                    </span>
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        showCheckpoints ? "bg-emerald-500 ring-2 ring-emerald-200" : "bg-slate-300"
+                      }`}
+                    ></span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
