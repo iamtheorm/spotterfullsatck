@@ -11,41 +11,62 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
       <div className="h-14 px-5 flex items-center justify-between bg-white">
         {/* Left Side: Brand Logo, Title, Tagline */}
         <div className="flex items-center space-x-3.5">
-          {/* Commercial Vector Truck Logo */}
-          <div className="relative flex items-center justify-center">
+          {/* SafeCorridor Brand Shield Logo */}
+          <div className="relative flex items-center justify-center shrink-0">
             <svg
-              className="w-10 h-7 text-[#101c38]"
-              viewBox="0 0 54 38"
-              fill="currentColor"
+              className="w-9 h-9"
+              viewBox="0 0 48 48"
+              fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              {/* Amber Speed Streaks */}
-              <path d="M1 9H18L15 13H1L1 9Z" fill="#f59e0b" className="opacity-90" />
-              <path d="M4 16H22L19 20H4L4 16Z" fill="#f59e0b" className="opacity-80" />
-              <path d="M1 23H16L13 27H1L1 23Z" fill="#f59e0b" className="opacity-70" />
-              {/* Semi-Trailer */}
-              <rect x="12" y="6" width="23" height="21" rx="2" fill="#101c38" />
-              {/* Tractor Cabin */}
+              <defs>
+                <linearGradient id="headerShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0f172a" />
+                  <stop offset="100%" stopColor="#1e293b" />
+                </linearGradient>
+                <linearGradient id="headerEmeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#34d399" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
+              {/* Outer Protective Shield Badge */}
               <path
-                d="M34 11H41.5C42.3 11 43.1 11.3 43.6 11.9L49.4 17.7C49.8 18.1 50 18.7 50 19.3V27H34V11Z"
-                fill="#1e293b"
+                d="M24 3L6 10.5V23C6 34.5 13.8 44.5 24 47C34.2 44.5 42 34.5 42 23V10.5L24 3Z"
+                fill="url(#headerShieldGrad)"
+                stroke="#0ea5e9"
+                strokeWidth="2"
+                strokeLinejoin="round"
               />
-              {/* Windshield */}
-              <path d="M38 13H42L47 18H38V13Z" fill="#38bdf8" className="opacity-90" />
-              {/* Wheels */}
-              <circle cx="19" cy="28" r="4.5" fill="#0f172a" />
-              <circle cx="19" cy="28" r="2" fill="#ffffff" />
-              <circle cx="43" cy="28" r="4.5" fill="#0f172a" />
-              <circle cx="43" cy="28" r="2" fill="#ffffff" />
+              {/* Highway Corridor Perspective Track */}
+              <path
+                d="M16 38L21 21H27L32 38"
+                fill="none"
+                stroke="#475569"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <path
+                d="M24 23V36"
+                stroke="#38bdf8"
+                strokeWidth="2"
+                strokeDasharray="2 3"
+                strokeLinecap="round"
+              />
+              {/* Class 8 Cab Front */}
+              <rect x="18" y="14" width="12" height="10" rx="2" fill="url(#headerEmeraldGrad)" />
+              <rect x="20" y="16" width="8" height="3" rx="1" fill="#0f172a" />
+              <circle cx="20" cy="21.5" r="1.2" fill="#fef08a" />
+              <circle cx="28" cy="21.5" r="1.2" fill="#fef08a" />
+              <rect x="22" y="21" width="4" height="2" rx="0.5" fill="#f8fafc" />
             </svg>
           </div>
 
           <div>
             <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight font-sans leading-tight">
-              Weather-Aware Truck Routing
+              SafeCorridor
             </h1>
             <p className="text-xs font-medium text-slate-500">
-              Plan smarter. Deliver safer.
+              Weather-Aware Freight Intelligence
             </p>
           </div>
         </div>

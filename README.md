@@ -1,6 +1,6 @@
-# Weather-Aware Truck Routing
+# SafeCorridor: Weather-Aware Freight Intelligence
 
-A full-stack logistics application designed for commercial freight dispatch. The platform evaluates alternative highway routes between an origin and destination, calculating point-in-time atmospheric hazards (crosswinds, precipitation, snowfall) and applying vehicle gross load weight rules to prevent tractor-trailer rollovers and severe weather delays.
+A full-stack logistics application designed for commercial freight dispatch. SafeCorridor evaluates alternative highway routes between an origin and destination, calculating point-in-time atmospheric hazards (crosswinds, precipitation, snowfall) and applying vehicle gross load weight rules to prevent tractor-trailer rollovers and severe weather delays.
 
 Built with Django REST Framework on the backend and React (TypeScript, Vite, Tailwind CSS, Leaflet) on the frontend.
 
