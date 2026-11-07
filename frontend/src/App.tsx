@@ -14,7 +14,7 @@ import {
   DistanceUnit,
   WeightUnit,
 } from "./types";
-import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
+import { evaluateRoutes, fetchCorridorForecast, ensureDistinctRouteGeometries } from "./services/api";
 import { AlertCircle, SlidersHorizontal, ArrowRight, Truck } from "lucide-react";
 
 function detectCountryCode(text?: string): string | null {
@@ -128,7 +128,10 @@ export function App() {
       localStorage.removeItem("spotter_evaluation");
       localStorage.removeItem("safecorridor_evaluation_v2");
       const stored = localStorage.getItem("safecorridor_evaluation_v3");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return ensureDistinctRouteGeometries(parsed);
+      }
     } catch {}
     return null;
   });

@@ -116,11 +116,12 @@ const createDestinationMarker = (cityName: string) => {
 };
 
 // Animated Commercial 18-Wheeler Moving Semi-Truck Vehicle with Headlights Beam
-const createMovingTruckIcon = (headingDeg: number = 0) => {
+// Created once and rotated imperatively via .truck-sprite-rotator for zero-jitter 60fps movement
+const createMovingTruckIcon = (initialHeadingDeg: number = 0) => {
   return L.divIcon({
     className: "custom-animated-truck-marker",
     html: `
-      <div style="position: relative; width: 36px; height: 74px; transform: rotate(${headingDeg}deg); transition: transform 0.25s linear; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none;">
+      <div class="truck-sprite-rotator" style="position: relative; width: 36px; height: 74px; transform: translate3d(0,0,0) rotate(${initialHeadingDeg.toFixed(2)}deg); transform-origin: 50% 50%; will-change: transform; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.55)); pointer-events: none; outline: none;">
         <!-- Forward Headlight Beams Cone -->
         <div style="position: absolute; top: -38px; left: -14px; width: 64px; height: 44px; background: radial-gradient(ellipse at 50% 100%, rgba(254, 240, 138, 0.8) 0%, rgba(253, 224, 71, 0.35) 45%, rgba(253, 224, 71, 0) 80%); clip-path: polygon(28% 100%, 72% 100%, 100% 0%, 0% 0%); pointer-events: none; z-index: 1;"></div>
         
@@ -197,7 +198,157 @@ const createMovingTruckIcon = (headingDeg: number = 0) => {
   });
 };
 
-// Smoothly pans and fits the map to the currently selected route
+interface SmoothTrackPoint {
+  lat: number;
+  lon: number;
+  ux: number;
+  uy: number;
+}
+
+// Precomputes a uniformly arc-length-sampled, spatially smoothed track with continuous 2D heading vectors
+function buildSmoothRouteTrack(rawCoords?: [number, number][]): SmoothTrackPoint[] {
+  if (!rawCoords || rawCoords.length < 2) return [];
+
+  // 1. Remove duplicate consecutive vertices
+  const filtered: [number, number][] = [rawCoords[0]];
+  for (let i = 1; i < rawCoords.length; i++) {
+    const [prevLon, prevLat] = filtered[filtered.length - 1];
+    const [curLon, curLat] = rawCoords[i];
+    if (Math.abs(curLon - prevLon) + Math.abs(curLat - prevLat) > 1e-7) {
+      filtered.push(rawCoords[i]);
+    }
+  }
+  if (filtered.length < 2) {
+    filtered.push(rawCoords[rawCoords.length - 1]);
+  }
+
+  // 2. Cumulative arc-length distances in meters
+  const cumDist: number[] = [0];
+  for (let i = 1; i < filtered.length; i++) {
+    const [lon1, lat1] = filtered[i - 1];
+    const [lon2, lat2] = filtered[i];
+    const d = getDistanceMeters(lat1, lon1, lat2, lon2);
+    cumDist.push(cumDist[i - 1] + d);
+  }
+
+  const totalDist = cumDist[cumDist.length - 1];
+  if (totalDist <= 1) {
+    const [lon, lat] = filtered[0];
+    return [
+      { lat, lon, ux: 0, uy: 1 },
+      { lat, lon, ux: 0, uy: 1 },
+    ];
+  }
+
+  // 3. Resample at 600 strictly uniform arc-length intervals (constant ground speed)
+  const NUM_SAMPLES = 600;
+  const resampled: { lat: number; lon: number }[] = [];
+  let segIdx = 0;
+
+  for (let k = 0; k < NUM_SAMPLES; k++) {
+    const targetDist = (k / (NUM_SAMPLES - 1)) * totalDist;
+    while (segIdx < cumDist.length - 2 && cumDist[segIdx + 1] < targetDist) {
+      segIdx++;
+    }
+    const d0 = cumDist[segIdx];
+    const d1 = cumDist[segIdx + 1];
+    const ratio = d1 > d0 ? Math.max(0, Math.min(1, (targetDist - d0) / (d1 - d0))) : 0;
+    const [lon1, lat1] = filtered[segIdx];
+    const [lon2, lat2] = filtered[segIdx + 1];
+    resampled.push({
+      lat: lat1 + (lat2 - lat1) * ratio,
+      lon: lon1 + (lon2 - lon1) * ratio,
+    });
+  }
+
+  // 4. Two-pass symmetric spatial smoothing on interior points to remove ramp micro-jitter
+  let smoothed = resampled;
+  for (let pass = 0; pass < 2; pass++) {
+    const next = smoothed.map((pt) => ({ ...pt }));
+    const radius = 3;
+    for (let i = 1; i < NUM_SAMPLES - 1; i++) {
+      const w = Math.min(radius, i, NUM_SAMPLES - 1 - i);
+      let sumLat = 0;
+      let sumLon = 0;
+      let count = 0;
+      for (let j = i - w; j <= i + w; j++) {
+        sumLat += smoothed[j].lat;
+        sumLon += smoothed[j].lon;
+        count++;
+      }
+      next[i].lat = sumLat / count;
+      next[i].lon = sumLon / count;
+    }
+    smoothed = next;
+  }
+
+  // 5. Compute Mercator-corrected unit tangent vectors using a wide lookahead chord
+  const rawVectors: { ux: number; uy: number }[] = [];
+  const lookWindow = 8;
+  for (let i = 0; i < NUM_SAMPLES; i++) {
+    const iA = Math.max(0, i - lookWindow);
+    const iB = Math.min(NUM_SAMPLES - 1, i + lookWindow);
+    const ptA = smoothed[iA];
+    const ptB = smoothed[iB];
+    const cosLat = Math.cos(((ptA.lat + ptB.lat) * 0.5 * Math.PI) / 180) || 1;
+    const dx = (ptB.lon - ptA.lon) * cosLat;
+    const dy = ptB.lat - ptA.lat;
+    const mag = Math.hypot(dx, dy);
+    if (mag > 1e-9) {
+      rawVectors.push({ ux: dx / mag, uy: dy / mag });
+    } else {
+      rawVectors.push(rawVectors[rawVectors.length - 1] || { ux: 0, uy: 1 });
+    }
+  }
+
+  // 6. Smooth unit tangent vectors so steering angle transitions fluidly around bends
+  const track: SmoothTrackPoint[] = [];
+  const vecSmoothRadius = 6;
+  for (let i = 0; i < NUM_SAMPLES; i++) {
+    let sx = 0;
+    let sy = 0;
+    const start = Math.max(0, i - vecSmoothRadius);
+    const end = Math.min(NUM_SAMPLES - 1, i + vecSmoothRadius);
+    for (let j = start; j <= end; j++) {
+      sx += rawVectors[j].ux;
+      sy += rawVectors[j].uy;
+    }
+    const mag = Math.hypot(sx, sy) || 1;
+    track.push({
+      lat: smoothed[i].lat,
+      lon: smoothed[i].lon,
+      ux: sx / mag,
+      uy: sy / mag,
+    });
+  }
+
+  return track;
+}
+
+function sampleSmoothRouteTrack(
+  track: SmoothTrackPoint[],
+  progress: number
+): { lat: number; lon: number; headingDeg: number } | null {
+  if (!track || track.length < 2) return null;
+  const clamped = Math.max(0, Math.min(1, progress));
+  const totalSegs = track.length - 1;
+  const exactIdx = clamped * totalSegs;
+  const baseIdx = Math.min(Math.floor(exactIdx), totalSegs - 1);
+  const frac = exactIdx - baseIdx;
+
+  const p1 = track[baseIdx];
+  const p2 = track[baseIdx + 1];
+
+  const lat = p1.lat + (p2.lat - p1.lat) * frac;
+  const lon = p1.lon + (p2.lon - p1.lon) * frac;
+  const ux = p1.ux + (p2.ux - p1.ux) * frac;
+  const uy = p1.uy + (p2.uy - p1.uy) * frac;
+  const headingDeg = Math.atan2(ux, uy) * (180 / Math.PI);
+
+  return { lat, lon, headingDeg };
+}
+
+// Smoothly pans and fits the map to frame all alternative routes in the corridor
 const MapBoundsAdjuster: React.FC<{
   routes: RouteOption[];
   selectedRouteId: string;
@@ -208,11 +359,17 @@ const MapBoundsAdjuster: React.FC<{
   useEffect(() => {
     if (!routes || routes.length === 0) return;
 
-    const targetRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
-    const points: [number, number][] = targetRoute.coordinates.map(([lon, lat]) => [lat, lon]);
+    const allPoints: [number, number][] = [];
+    for (const r of routes) {
+      if (r.coordinates) {
+        for (const [lon, lat] of r.coordinates) {
+          allPoints.push([lat, lon]);
+        }
+      }
+    }
 
-    if (points.length > 0) {
-      const bounds = L.latLngBounds(points);
+    if (allPoints.length > 0) {
+      const bounds = L.latLngBounds(allPoints);
       map.fitBounds(bounds, { padding: [55, 55], maxZoom: 10 });
     }
   }, [selectedRouteId, routes, map, triggerCenter]);
@@ -258,7 +415,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const [recenterCount, setRecenterCount] = useState(0);
   const [isLayersMenuOpen, setIsLayersMenuOpen] = useState(false);
 
-  // Simulation State: requestAnimationFrame Animation Loop
+  // Simulation State: requestAnimationFrame 60fps Animation Loop
   const [isPlaying, setIsPlaying] = useState(false);
   const [simProgress, setSimProgress] = useState(0);
   const [activePopoverCP, setActivePopoverCP] = useState<Checkpoint | null>(null);
@@ -270,8 +427,13 @@ export const MapView: React.FC<MapViewProps> = ({
   const zoomOutRef = useRef<() => void>(() => {});
   const animFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
+  const lastHudSyncRef = useRef<number>(0);
+  const simProgressRef = useRef<number>(0);
+  const truckMarkerRef = useRef<L.Marker | null>(null);
+  const pendingCheckpointsRef = useRef<Checkpoint[]>([]);
 
   const selectedRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+  const activeRouteId = selectedRoute?.id || selectedRouteId;
 
   const originCity = originName ? originName.split(",")[0].trim() : "Origin";
   const destCity = destinationName ? destinationName.split(",")[0].trim() : "Destination";
@@ -279,14 +441,39 @@ export const MapView: React.FC<MapViewProps> = ({
   const startCoords = selectedRoute?.coordinates?.[0];
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
 
+  // Precompute arc-length smoothed track for constant-speed, zero-jitter truck motion
+  const smoothTrack = useMemo(
+    () => buildSmoothRouteTrack(selectedRoute?.coordinates),
+    [selectedRoute]
+  );
+
+  // Stable L.divIcon instance created once so Leaflet never destroys/recreates marker DOM during animation
+  const stableTruckIcon = useMemo(() => createMovingTruckIcon(0), []);
+
+  // Imperatively updates the Leaflet marker position and SVG rotation at 60fps without React re-render overhead
+  const applyTruckPoseToMarker = (progressVal: number) => {
+    const pose = sampleSmoothRouteTrack(smoothTrack, progressVal);
+    if (!pose || !truckMarkerRef.current) return;
+    truckMarkerRef.current.setLatLng([pose.lat, pose.lon]);
+    const el = truckMarkerRef.current.getElement();
+    if (el) {
+      const rotator = el.querySelector(".truck-sprite-rotator") as HTMLElement | null;
+      if (rotator) {
+        rotator.style.transform = `translate3d(0,0,0) rotate(${pose.headingDeg.toFixed(2)}deg)`;
+      }
+    }
+  };
+
   // Reset simulation queue when selected route changes or reset clicked
   const handleResetSimulation = () => {
     setIsPlaying(false);
+    simProgressRef.current = 0;
     setSimProgress(0);
     setActivePopoverCP(null);
-    if (selectedRoute?.checkpoints) {
-      setPendingCheckpoints([...selectedRoute.checkpoints]);
-    }
+    const initialCps = selectedRoute?.checkpoints ? [...selectedRoute.checkpoints] : [];
+    pendingCheckpointsRef.current = initialCps;
+    setPendingCheckpoints(initialCps);
+    applyTruckPoseToMarker(0);
     if (onHourChange) {
       onHourChange(0);
     }
@@ -296,34 +483,16 @@ export const MapView: React.FC<MapViewProps> = ({
     handleResetSimulation();
   }, [selectedRouteId, routes]);
 
-  // Compute interpolated truck position along polyline based on simProgress (0.0 to 1.0)
+  // Sync imperative marker pose whenever simProgress changes while paused or scrubbing slider
+  useEffect(() => {
+    simProgressRef.current = simProgress;
+    applyTruckPoseToMarker(simProgress);
+  }, [simProgress, smoothTrack]);
+
+  // Compute interpolated truck position for React HUD & initial Marker placement
   const truckState = useMemo(() => {
-    if (!selectedRoute?.coordinates || selectedRoute.coordinates.length < 2) {
-      return null;
-    }
-    const coords = selectedRoute.coordinates;
-    const totalSegments = coords.length - 1;
-    const exactIndex = simProgress * totalSegments;
-    const baseIdx = Math.min(Math.floor(exactIndex), totalSegments - 1);
-    const fraction = exactIndex - baseIdx;
-
-    const [lon1, lat1] = coords[baseIdx];
-    const [lon2, lat2] = coords[baseIdx + 1];
-
-    const currentLat = lat1 + (lat2 - lat1) * fraction;
-    const currentLon = lon1 + (lon2 - lon1) * fraction;
-
-    const dy = lat2 - lat1;
-    const dx = lon2 - lon1;
-    const headingDeg = Math.atan2(dx, dy) * (180 / Math.PI);
-
-    return {
-      lat: currentLat,
-      lon: currentLon,
-      headingDeg,
-      baseIdx,
-    };
-  }, [selectedRoute, simProgress]);
+    return sampleSmoothRouteTrack(smoothTrack, simProgress);
+  }, [smoothTrack, simProgress]);
 
   // Dynamic Weather Heatmap Sync: as the truck drives towards destination, update forecast hour
   useEffect(() => {
@@ -350,9 +519,9 @@ export const MapView: React.FC<MapViewProps> = ({
     return closest;
   }, [truckState, selectedRoute]);
 
-  // Simulation Animation Loop using requestAnimationFrame
+  // 60fps Imperative Simulation Animation Loop using requestAnimationFrame
   useEffect(() => {
-    if (!isPlaying || !selectedRoute?.coordinates || selectedRoute.coordinates.length < 2) {
+    if (!isPlaying || smoothTrack.length < 2) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       lastTimeRef.current = null;
       return;
@@ -362,17 +531,61 @@ export const MapView: React.FC<MapViewProps> = ({
 
     const stepAnimation = (timestamp: number) => {
       if (!lastTimeRef.current) lastTimeRef.current = timestamp;
-      const deltaTime = timestamp - lastTimeRef.current;
+      // Clamp frame delta to avoid jumps if browser tab was backgrounded
+      const rawDelta = timestamp - lastTimeRef.current;
+      const deltaTime = Math.min(64, Math.max(0, rawDelta));
       lastTimeRef.current = timestamp;
 
-      setSimProgress((prev) => {
-        const next = prev + deltaTime / totalDurationMs;
-        if (next >= 1.0) {
-          setIsPlaying(false);
-          return 1.0;
+      const nextProgress = Math.min(1.0, simProgressRef.current + deltaTime / totalDurationMs);
+      simProgressRef.current = nextProgress;
+
+      // 1. Move and rotate the Leaflet truck marker imperatively at native 60fps
+      applyTruckPoseToMarker(nextProgress);
+
+      // 2. Check proximity to upcoming checkpoints at 60fps
+      const pose = sampleSmoothRouteTrack(smoothTrack, nextProgress);
+      if (pose && pendingCheckpointsRef.current.length > 0) {
+        for (let i = 0; i < pendingCheckpointsRef.current.length; i++) {
+          const cp = pendingCheckpointsRef.current[i];
+          const dist = getDistanceMeters(pose.lat, pose.lon, cp.lat, cp.lon);
+          if (dist < 8500) {
+            const isHighRiskOrAbove =
+              cp.final_level === "High" ||
+              cp.final_level === "Severe" ||
+              cp.final_level === "No Travel" ||
+              cp.final_score >= 3;
+
+            if (isHighRiskOrAbove) {
+              playTruckAirHorn();
+            }
+
+            pendingCheckpointsRef.current = pendingCheckpointsRef.current.filter(
+              (item) => item.index !== cp.index
+            );
+            setPendingCheckpoints(pendingCheckpointsRef.current);
+            setActivePopoverCP(cp);
+
+            setTimeout(() => {
+              setActivePopoverCP((current) =>
+                current?.index === cp.index ? null : current
+              );
+            }, 3200);
+            break;
+          }
         }
-        return next;
-      });
+      }
+
+      // 3. Throttle React HUD state updates (~20fps) so React doesn't re-render map layers every 16ms
+      if (nextProgress >= 1.0) {
+        setSimProgress(1.0);
+        setIsPlaying(false);
+        return;
+      }
+
+      if (timestamp - lastHudSyncRef.current >= 48) {
+        lastHudSyncRef.current = timestamp;
+        setSimProgress(nextProgress);
+      }
 
       animFrameRef.current = requestAnimationFrame(stepAnimation);
     };
@@ -382,43 +595,7 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, selectedRoute]);
-
-  // Proximity Checkpoint Trigger: Checkpoint within proximity
-  useEffect(() => {
-    if (!isPlaying || !truckState || pendingCheckpoints.length === 0) return;
-
-    for (let i = 0; i < pendingCheckpoints.length; i++) {
-      const cp = pendingCheckpoints[i];
-      const dist = getDistanceMeters(truckState.lat, truckState.lon, cp.lat, cp.lon);
-
-      if (dist < 8000) {
-        const isHighRiskOrAbove =
-          cp.final_level === "High" ||
-          cp.final_level === "Severe" ||
-          cp.final_level === "No Travel" ||
-          cp.final_score >= 3;
-
-        // Sound the pneumatic air horn only in areas of high risk and above
-        if (isHighRiskOrAbove) {
-          playTruckAirHorn();
-        }
-
-        setActivePopoverCP(cp);
-        setPendingCheckpoints((prev) =>
-          prev.filter((item) => item.index !== cp.index)
-        );
-
-        setTimeout(() => {
-          setActivePopoverCP((current) =>
-            current?.index === cp.index ? null : current
-          );
-        }, 3200);
-
-        break;
-      }
-    }
-  }, [truckState, isPlaying, pendingCheckpoints]);
+  }, [isPlaying, smoothTrack]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-slate-100 flex flex-col isolate">
@@ -541,46 +718,69 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 3. INACTIVE ALTERNATIVE ROUTES: Subtle Faded Lines */}
+          {/* 3. INACTIVE ALTERNATIVE ROUTES: Distinct Highway Corridors */}
           {routes
-            .filter((r) => r.id !== selectedRouteId)
-            .map((r) => {
+            .filter((r) => r.id !== activeRouteId)
+            .map((r, idx) => {
               const coords: [number, number][] = r.coordinates.map(([lon, lat]) => [lat, lon]);
+              const altColor =
+                mapStyle === "dark"
+                  ? idx === 0
+                    ? "#60a5fa"
+                    : "#94a3b8"
+                  : idx === 0
+                  ? "#475569"
+                  : "#64748b";
               return (
-                <Polyline
-                  key={`inactive-${r.id}`}
-                  positions={coords}
-                  pathOptions={{
-                    color: mapStyle === "dark" ? "#64748b" : "#94a3b8",
-                    weight: 3,
-                    opacity: 0.45,
-                    dashArray: "6, 8",
-                  }}
-                  eventHandlers={{
-                    click: () => onSelectRoute(r.id),
-                  }}
-                />
+                <React.Fragment key={`inactive-group-${r.id}`}>
+                  <Polyline
+                    key={`inactive-casing-${r.id}`}
+                    positions={coords}
+                    pathOptions={{
+                      color: mapStyle === "dark" ? "#0f172a" : "#ffffff",
+                      weight: 6.5,
+                      opacity: 0.65,
+                    }}
+                    eventHandlers={{
+                      click: () => onSelectRoute(r.id),
+                    }}
+                  />
+                  <Polyline
+                    key={`inactive-${r.id}`}
+                    positions={coords}
+                    pathOptions={{
+                      color: altColor,
+                      weight: 3.8,
+                      opacity: 0.82,
+                      dashArray: "8, 6",
+                    }}
+                    eventHandlers={{
+                      click: () => onSelectRoute(r.id),
+                    }}
+                  />
+                </React.Fragment>
               );
             })}
 
-          {/* 4. ACTIVE ROUTE POLYLINE: Emerald Focus Path */}
+          {/* 4. ACTIVE ROUTE POLYLINE: Bold Emerald Focus Path */}
           {selectedRoute && (
             <>
               <Polyline
+                key={`active-glow-${selectedRoute.id}`}
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
                   color: "#22c55e",
-                  weight: 8,
-                  opacity: mapStyle === "dark" ? 0.45 : 0.3,
+                  weight: 10,
+                  opacity: mapStyle === "dark" ? 0.45 : 0.35,
                 }}
               />
               <Polyline
+                key={`active-core-${selectedRoute.id}`}
                 positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
                 pathOptions={{
                   color: "#16a34a",
-                  weight: 4.5,
-                  opacity: 0.95,
-                  dashArray: "3, 5",
+                  weight: 5,
+                  opacity: 1.0,
                 }}
               />
             </>
@@ -591,22 +791,32 @@ export const MapView: React.FC<MapViewProps> = ({
             <Marker
               position={[startCoords[1], startCoords[0]]}
               icon={createOriginMarker(originCity)}
+              keyboard={false}
             />
           )}
           {endCoords && (
             <Marker
               position={[endCoords[1], endCoords[0]]}
               icon={createDestinationMarker(destCity)}
+              keyboard={false}
             />
           )}
 
-          {/* 6. ANIMATED MOVING COMMERCIAL TRUCK MARKER */}
-          {truckState && (
+          {/* 6. ANIMATED MOVING COMMERCIAL TRUCK MARKER (Imperative 60fps Pose Updates) */}
+          {startCoords && (
             <Marker
-              position={[truckState.lat, truckState.lon]}
-              icon={createMovingTruckIcon(truckState.headingDeg)}
+              ref={(m) => {
+                truckMarkerRef.current = m;
+                if (m) {
+                  applyTruckPoseToMarker(simProgressRef.current);
+                }
+              }}
+              position={[startCoords[1], startCoords[0]]}
+              icon={stableTruckIcon}
+              keyboard={false}
+              zIndexOffset={1000}
             >
-              <Tooltip direction="top" offset={[0, -42]} opacity={0.98} permanent={isPlaying}>
+              <Tooltip direction="top" offset={[0, -42]} opacity={0.96}>
                 <div className="font-mono text-center text-xs">
                   <div className="font-black text-sky-600 flex items-center justify-center gap-1">
                     <Truck className="w-3.5 h-3.5" />
@@ -620,65 +830,67 @@ export const MapView: React.FC<MapViewProps> = ({
             </Marker>
           )}
 
-          {/* 7a. INACTIVE ROUTE HAZARD CHECKPOINTS (High / Severe / No Travel Storm Fronts) */}
+          {/* 7a. INACTIVE ROUTE CHECKPOINTS (Full Corridor Trace + Highlighted Storm Fronts) */}
           {showCheckpoints &&
             routes
-              .filter((r) => r.id !== selectedRouteId)
+              .filter((r) => r.id !== activeRouteId)
               .map((r) =>
-                r.checkpoints
-                  ?.filter(
-                    (cp) =>
-                      cp.final_score >= 3 ||
-                      cp.final_level === "High" ||
-                      cp.final_level === "Severe" ||
-                      cp.final_level === "No Travel"
-                  )
-                  .map((cp) => {
-                    const color =
-                      cp.final_level === "No Travel"
-                        ? "#991b1b"
-                        : cp.final_level === "Severe"
-                        ? "#ef4444"
-                        : "#f97316";
+                r.checkpoints?.map((cp) => {
+                  const isHazard =
+                    cp.final_score >= 3 ||
+                    cp.final_level === "High" ||
+                    cp.final_level === "Severe" ||
+                    cp.final_level === "No Travel";
 
-                    return (
-                      <CircleMarker
-                        key={`inactive-hazard-${r.id}-${cp.index}`}
-                        center={[cp.lat, cp.lon]}
-                        radius={4}
-                        pathOptions={{
-                          color: "#ffffff",
-                          fillColor: color,
-                          fillOpacity: 0.85,
-                          weight: 1.2,
-                        }}
-                        eventHandlers={{
-                          click: () => {
-                            onSelectRoute(r.id);
-                            onOpenModal(cp, r.name);
-                          },
-                        }}
-                      >
-                        <Tooltip direction="top" offset={[0, -6]} opacity={0.96}>
-                          <div className="font-mono text-center">
-                            <div className="font-bold text-amber-300 text-[10px]">
-                              {r.name}
-                            </div>
-                            <div className="font-bold text-sky-400">
-                              CP #{cp.index} &bull; Mile {cp.mile_marker}
-                            </div>
-                            <div className="text-[10px] text-slate-300 mt-0.5">
-                              Wind: {cp.weather?.wind_mph} mph | Rain: {cp.weather?.rain_in_per_hr} in/h
-                              {cp.weather?.snow_in_per_hr ? ` | Snow: ${cp.weather.snow_in_per_hr} in/h` : ""}
-                            </div>
-                            <div className="mt-1 font-bold text-red-400">
-                              Hazard Avoided: {cp.final_level}
-                            </div>
+                  const color =
+                    cp.final_level === "No Travel"
+                      ? "#991b1b"
+                      : cp.final_level === "Severe"
+                      ? "#ef4444"
+                      : cp.final_level === "High"
+                      ? "#f97316"
+                      : cp.final_level === "Moderate"
+                      ? "#eab308"
+                      : "#22c55e";
+
+                  return (
+                    <CircleMarker
+                      key={`inactive-cp-${r.id}-${cp.index}-${cp.final_level}`}
+                      center={[cp.lat, cp.lon]}
+                      radius={isHazard ? 4.2 : 2.8}
+                      pathOptions={{
+                        color: "#ffffff",
+                        fillColor: color,
+                        fillOpacity: isHazard ? 0.9 : 0.65,
+                        weight: isHazard ? 1.2 : 0.8,
+                      }}
+                      eventHandlers={{
+                        click: () => {
+                          onSelectRoute(r.id);
+                          onOpenModal(cp, r.name);
+                        },
+                      }}
+                    >
+                      <Tooltip direction="top" offset={[0, -6]} opacity={0.96}>
+                        <div className="font-mono text-center">
+                          <div className="font-bold text-amber-300 text-[10px]">
+                            {r.name}
                           </div>
-                        </Tooltip>
-                      </CircleMarker>
-                    );
-                  })
+                          <div className="font-bold text-sky-400">
+                            CP #{cp.index} &bull; Mile {cp.mile_marker}
+                          </div>
+                          <div className="text-[10px] text-slate-300 mt-0.5">
+                            Wind: {cp.weather?.wind_mph} mph | Rain: {cp.weather?.rain_in_per_hr} in/h
+                            {cp.weather?.snow_in_per_hr ? ` | Snow: ${cp.weather.snow_in_per_hr} in/h` : ""}
+                          </div>
+                          <div className="mt-1 font-bold text-amber-300">
+                            Risk: {cp.final_level}
+                          </div>
+                        </div>
+                      </Tooltip>
+                    </CircleMarker>
+                  );
+                })
               )}
 
           {/* 7b. ACTIVE ROUTE CHECKPOINT RISK DOTS */}
@@ -698,9 +910,9 @@ export const MapView: React.FC<MapViewProps> = ({
 
               return (
                 <CircleMarker
-                  key={`active-cp-${cp.index}`}
+                  key={`active-cp-${selectedRoute.id}-${cp.index}-${cp.final_level}`}
                   center={[cp.lat, cp.lon]}
-                  radius={isSelected ? 7 : 4.5}
+                  radius={isSelected ? 7.5 : 5}
                   pathOptions={{
                     color: isSelected ? "#0f172a" : "#ffffff",
                     fillColor: color,

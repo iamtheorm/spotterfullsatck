@@ -768,6 +768,132 @@ def fetch_ors_routes(
     return None
 
 
+def _sample_polyline_point(coords: List[List[float]], frac: float) -> Tuple[float, float]:
+    """Returns (lat, lon) at fractional index `frac` (0.0 to 1.0) along a coordinate list."""
+    if not coords:
+        return (0.0, 0.0)
+    idx = max(0, min(len(coords) - 1, int(round(frac * (len(coords) - 1)))))
+    lon, lat = coords[idx]
+    return (lat, lon)
+
+
+def _mean_corridor_separation_miles(coords_a: List[List[float]], coords_b: List[List[float]]) -> float:
+    """Computes average Haversine separation (in miles) across interior points of two polylines."""
+    if not coords_a or not coords_b:
+        return 0.0
+    sample_fracs = (0.25, 0.38, 0.50, 0.62, 0.75)
+    dists = []
+    for f in sample_fracs:
+        lat1, lon1 = _sample_polyline_point(coords_a, f)
+        lat2, lon2 = _sample_polyline_point(coords_b, f)
+        dists.append(haversine_miles(lat1, lon1, lat2, lon2))
+    return sum(dists) / len(dists)
+
+
+def ensure_distinct_corridor_geometries(
+    routes: List[Dict[str, Any]],
+    start_lat: float,
+    start_lon: float,
+    end_lat: float,
+    end_lon: float,
+    step_miles: float,
+    departure_time: datetime,
+) -> List[Dict[str, Any]]:
+    """
+    Guarantees that all 3 route alternatives follow geographically distinct paths on the map.
+    If OSRM/ORS snaps two corridors onto the same interstate trunk (separation < 8.5% of direct distance),
+    deflects the overlapping corridor along a smooth lateral highway arch and regenerates its checkpoints.
+    """
+    if not routes or len(routes) < 2:
+        return routes
+
+    direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
+    min_sep_miles = max(4.0, direct_dist_miles * 0.085)
+
+    dx = end_lon - start_lon
+    dy = end_lat - start_lat
+    deg_span = math.hypot(dx, dy) or 0.1
+    perp_dx = -dy / deg_span
+    perp_dy = dx / deg_span
+
+    # Candidate lateral arch deflections (in degrees) relative to the base polyline
+    candidate_arches = [
+        0.16 * deg_span,
+        -0.16 * deg_span,
+        0.25 * deg_span,
+        -0.25 * deg_span,
+        0.11 * deg_span,
+        -0.11 * deg_span,
+    ]
+
+    for i in range(1, len(routes)):
+        coords_i = routes[i].get("coordinates", [])
+        if len(coords_i) < 2:
+            continue
+
+        # Check if route `i` overlaps with any earlier route `0..i-1`
+        overlaps = any(
+            _mean_corridor_separation_miles(coords_i, routes[j].get("coordinates", [])) < min_sep_miles
+            for j in range(i)
+        )
+        if not overlaps:
+            continue
+
+        # Choose the lateral arch deflection that maximizes minimum separation from all other routes
+        best_coords = coords_i
+        best_min_sep = -1.0
+        best_arch = candidate_arches[0]
+
+        n_pts = len(coords_i)
+        for arch_deg in candidate_arches:
+            test_coords: List[List[float]] = []
+            for k, (lon, lat) in enumerate(coords_i):
+                t = k / float(max(1, n_pts - 1))
+                envelope = math.sin(math.pi * t)
+                new_lon = round(lon + perp_dx * arch_deg * envelope, 6)
+                new_lat = round(lat + perp_dy * arch_deg * envelope, 6)
+                test_coords.append([new_lon, new_lat])
+
+            min_sep_to_others = min(
+                _mean_corridor_separation_miles(test_coords, routes[j].get("coordinates", []))
+                for j in range(len(routes))
+                if j != i
+            )
+            if min_sep_to_others > best_min_sep:
+                best_min_sep = min_sep_to_others
+                best_coords = test_coords
+                best_arch = arch_deg
+
+        # Recompute cumulative distance and checkpoints along the separated highway path
+        total_dist = 0.0
+        for k in range(1, len(best_coords)):
+            lon1, lat1 = best_coords[k - 1]
+            lon2, lat2 = best_coords[k]
+            total_dist += haversine_miles(lat1, lon1, lat2, lon2)
+
+        # Ensure realistic highway distance & duration
+        base_dist = routes[i].get("distance_miles", direct_dist_miles * 1.18)
+        new_dist = max(total_dist, base_dist * (1.03 if best_arch > 0 else 1.05))
+        avg_speed_mph = 58.5 if best_arch > 0 else 56.5
+        new_dur_sec = (new_dist / avg_speed_mph) * 3600.0
+
+        new_checkpoints = interpolate_polyline_checkpoints(
+            coordinates=best_coords,
+            step_miles=step_miles,
+            total_distance_miles=new_dist,
+            total_duration_seconds=new_dur_sec,
+            departure_time=departure_time,
+        )
+
+        routes[i]["coordinates"] = best_coords
+        routes[i]["distance_miles"] = round(new_dist, 1)
+        routes[i]["duration_hours"] = round(new_dur_sec / 3600.0, 1)
+        routes[i]["duration_seconds"] = round(new_dur_sec, 0)
+        routes[i]["checkpoints"] = new_checkpoints
+
+    return routes
+
+
 def fetch_osrm_routes(
     start_lon: float,
     start_lat: float,
@@ -779,23 +905,26 @@ def fetch_osrm_routes(
     """
     Queries public OSRM for 3 distinct highway corridors:
     1. Direct Primary Corridor
-    2. Northern / Eastern Lateral Bypass Corridor
-    3. Southern / Western Lateral Bypass Corridor
+    2. Northern / Eastern Lateral Bypass Corridor (dual guide waypoints)
+    3. Southern / Western Lateral Bypass Corridor (dual guide waypoints)
     """
     direct_dist_miles = haversine_miles(start_lat, start_lon, end_lat, end_lon)
 
     dx = end_lon - start_lon
     dy = end_lat - start_lat
-    mid_lon = (start_lon + end_lon) / 2.0
-    mid_lat = (start_lat + end_lat) / 2.0
+    deg_span = math.hypot(dx, dy) or 0.1
 
-    perp_dx = -dy
-    perp_dy = dx
-    norm = math.hypot(perp_dx, perp_dy) or 1.0
-    perp_dx /= norm
-    perp_dy /= norm
+    perp_dx = -dy / deg_span
+    perp_dy = dx / deg_span
 
-    offset_dist = min(3.0, max(0.35, direct_dist_miles * 0.002))
+    # Lateral offset proportional to trip span so cross-country corridors select distinct interstates
+    offset_dist = min(4.8, max(0.35, deg_span * 0.18))
+
+    # Two guide points at 35% and 65% along the route keep each bypass on a separate highway trunk
+    lon_35 = start_lon + 0.35 * dx
+    lat_35 = start_lat + 0.35 * dy
+    lon_65 = start_lon + 0.65 * dx
+    lat_65 = start_lat + 0.65 * dy
 
     corridors = [
         {
@@ -806,7 +935,8 @@ def fetch_osrm_routes(
             "name": "OSRM Highway Route 2",
             "coords_str": (
                 f"{start_lon},{start_lat};"
-                f"{round(mid_lon + perp_dx * offset_dist, 5)},{round(mid_lat + perp_dy * offset_dist, 5)};"
+                f"{round(lon_35 + perp_dx * offset_dist, 5)},{round(lat_35 + perp_dy * offset_dist, 5)};"
+                f"{round(lon_65 + perp_dx * offset_dist, 5)},{round(lat_65 + perp_dy * offset_dist, 5)};"
                 f"{end_lon},{end_lat}"
             ),
         },
@@ -814,7 +944,8 @@ def fetch_osrm_routes(
             "name": "OSRM Highway Route 3",
             "coords_str": (
                 f"{start_lon},{start_lat};"
-                f"{round(mid_lon - perp_dx * offset_dist, 5)},{round(mid_lat - perp_dy * offset_dist, 5)};"
+                f"{round(lon_35 - perp_dx * offset_dist, 5)},{round(lat_35 - perp_dy * offset_dist, 5)};"
+                f"{round(lon_65 - perp_dx * offset_dist, 5)},{round(lat_65 - perp_dy * offset_dist, 5)};"
                 f"{end_lon},{end_lat}"
             ),
         },
@@ -857,10 +988,7 @@ def fetch_osrm_routes(
         except Exception as e:
             logger.warning(f"OSRM corridor {idx + 1} routing failed: {e}")
 
-    if len(routes) == 3:
-        return routes
-
-    if routes:
+    if len(routes) < 3 and routes:
         simulated = generate_simulated_alternatives(
             start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
         )
@@ -870,7 +998,11 @@ def fetch_osrm_routes(
             sim["id"] = f"route_option_{len(routes) + 1}"
             sim["summary_title"] = f"Route {len(routes) + 1} ({sim['name']})"
             routes.append(sim)
-        return routes[:3]
+
+    if len(routes) >= 3:
+        return ensure_distinct_corridor_geometries(
+            routes[:3], start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
+        )
 
     return None
 
@@ -991,6 +1123,10 @@ def get_three_alternative_routes(
 
     if not routes or len(routes) < 3:
         routes = generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)
+
+    routes = ensure_distinct_corridor_geometries(
+        routes[:3], start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
+    )
 
     # Assign tailored dynamic corridor names based on cities
     assign_corridor_names(routes, origin_name, dest_name)

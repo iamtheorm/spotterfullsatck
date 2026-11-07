@@ -45,12 +45,142 @@ export async function evaluateRoutes(
 
   const data: EvaluationResponse = await resp.json();
 
-  // Guarantee all 3 routes (including #1 Recommended) show realistic hazard checkpoints even if Render is mid-deploy
+  // Guarantee all 3 routes have geographically distinct paths and active corridor risk zones
   if (data.routes && data.routes.length > 0) {
-    return ensureCorridorRiskZones(data, req.weather_scenario || "live");
+    const distinctData = ensureDistinctRouteGeometries(data);
+    return ensureCorridorRiskZones(distinctData, req.weather_scenario || "live");
   }
 
   return data;
+}
+
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function samplePolylinePoint(coords: [number, number][], frac: number): [number, number] {
+  if (!coords || coords.length === 0) return [0, 0];
+  const idx = Math.max(0, Math.min(coords.length - 1, Math.round(frac * (coords.length - 1))));
+  const [lon, lat] = coords[idx];
+  return [lat, lon];
+}
+
+function meanCorridorSeparationMiles(coordsA: [number, number][], coordsB: [number, number][]): number {
+  if (!coordsA?.length || !coordsB?.length) return 0;
+  const fracs = [0.25, 0.38, 0.5, 0.62, 0.75];
+  let sum = 0;
+  for (const f of fracs) {
+    const [lat1, lon1] = samplePolylinePoint(coordsA, f);
+    const [lat2, lon2] = samplePolylinePoint(coordsB, f);
+    sum += haversineMiles(lat1, lon1, lat2, lon2);
+  }
+  return sum / fracs.length;
+}
+
+export function ensureDistinctRouteGeometries(data: EvaluationResponse): EvaluationResponse {
+  if (!data.routes || data.routes.length < 2) return data;
+
+  const firstCoords = data.routes[0]?.coordinates;
+  if (!firstCoords || firstCoords.length < 2) return data;
+
+  const [startLon, startLat] = firstCoords[0];
+  const [endLon, endLat] = firstCoords[firstCoords.length - 1];
+  const directDistMiles = Math.max(1, haversineMiles(startLat, startLon, endLat, endLon));
+  const minSepMiles = Math.max(4, directDistMiles * 0.085);
+
+  const dx = endLon - startLon;
+  const dy = endLat - startLat;
+  const degSpan = Math.hypot(dx, dy) || 0.1;
+  const perpDx = -dy / degSpan;
+  const perpDy = dx / degSpan;
+
+  const candidateArches = [
+    0.16 * degSpan,
+    -0.16 * degSpan,
+    0.25 * degSpan,
+    -0.25 * degSpan,
+    0.11 * degSpan,
+    -0.11 * degSpan,
+  ];
+
+  const updatedRoutes = data.routes.map((r) => ({
+    ...r,
+    coordinates: [...(r.coordinates || [])],
+    checkpoints: [...(r.checkpoints || [])],
+  }));
+
+  for (let i = 1; i < updatedRoutes.length; i++) {
+    const coordsI = updatedRoutes[i].coordinates;
+    if (coordsI.length < 2) continue;
+
+    let overlaps = false;
+    for (let j = 0; j < i; j++) {
+      if (meanCorridorSeparationMiles(coordsI, updatedRoutes[j].coordinates) < minSepMiles) {
+        overlaps = true;
+        break;
+      }
+    }
+    if (!overlaps) continue;
+
+    let bestArch = candidateArches[0];
+    let bestMinSep = -1;
+    let bestCoords = coordsI;
+
+    const nPts = coordsI.length;
+    for (const archDeg of candidateArches) {
+      const testCoords: [number, number][] = coordsI.map(([lon, lat], k) => {
+        const t = k / Math.max(1, nPts - 1);
+        const env = Math.sin(Math.PI * t);
+        return [
+          Number((lon + perpDx * archDeg * env).toFixed(6)),
+          Number((lat + perpDy * archDeg * env).toFixed(6)),
+        ];
+      });
+
+      let minSepToOthers = Infinity;
+      for (let j = 0; j < updatedRoutes.length; j++) {
+        if (j === i) continue;
+        const sep = meanCorridorSeparationMiles(testCoords, updatedRoutes[j].coordinates);
+        if (sep < minSepToOthers) minSepToOthers = sep;
+      }
+      if (minSepToOthers > bestMinSep) {
+        bestMinSep = minSepToOthers;
+        bestArch = archDeg;
+        bestCoords = testCoords;
+      }
+    }
+
+    const totalCps = updatedRoutes[i].checkpoints.length;
+    const deflectedCheckpoints = updatedRoutes[i].checkpoints.map((cp, cIdx) => {
+      const t = cIdx / Math.max(1, totalCps - 1);
+      const env = Math.sin(Math.PI * t);
+      return {
+        ...cp,
+        lon: Number((cp.lon + perpDx * bestArch * env).toFixed(6)),
+        lat: Number((cp.lat + perpDy * bestArch * env).toFixed(6)),
+      };
+    });
+
+    updatedRoutes[i] = {
+      ...updatedRoutes[i],
+      coordinates: bestCoords,
+      checkpoints: deflectedCheckpoints,
+    };
+  }
+
+  return {
+    ...data,
+    routes: updatedRoutes,
+  };
 }
 
 function ensureCorridorRiskZones(

@@ -84,9 +84,18 @@ html, body, #root {
 }
 
 /* Moving Truck Leaflet Marker & Headlights Beam */
-.animated-truck-marker {
-  transition: transform 0.6s linear, left 0.6s linear, top 0.6s linear;
-  will-change: transform, left, top;
+.custom-animated-truck-marker,
+.custom-origin-marker,
+.custom-dest-marker,
+.leaflet-marker-icon:focus,
+.leaflet-interactive:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.custom-animated-truck-marker {
+  transition: none !important;
+  will-change: transform;
 }
 
 .truck-headlight-beam {

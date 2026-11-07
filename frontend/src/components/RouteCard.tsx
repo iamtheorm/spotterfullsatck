@@ -39,10 +39,12 @@ export const RouteCard: React.FC<RouteCardProps> = ({
     <div
       onClick={onSelect}
       className={`cursor-pointer rounded-2xl p-4 transition border shadow-xs select-none ${
-        is_recommended
-          ? "bg-[#f0fdf4]/60 border-emerald-300 ring-1 ring-emerald-500/20 shadow-xs"
-          : isSelected
-          ? "bg-blue-50/40 border-blue-400 ring-1 ring-blue-500/20 shadow-xs"
+        isSelected
+          ? is_recommended
+            ? "bg-[#f0fdf4] border-emerald-500 ring-2 ring-emerald-500/25 shadow-sm"
+            : "bg-blue-50/70 border-blue-500 ring-2 ring-blue-500/25 shadow-sm"
+          : is_recommended
+          ? "bg-white border-emerald-200/90 hover:border-emerald-300"
           : "bg-white border-slate-200/90 hover:border-slate-300"
       }`}
     >
