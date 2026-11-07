@@ -12,7 +12,7 @@ import {
   RotateCcw,
   ChevronDown,
 } from "lucide-react";
-import { RouteEvaluationRequest } from "../types";
+import { RouteEvaluationRequest, DistanceUnit, WeightUnit } from "../types";
 import { CityAutocomplete } from "./CityAutocomplete";
 import { LocationSuggestion } from "../services/api";
 
@@ -24,6 +24,10 @@ interface InputPanelProps {
   selectedRegion?: string;
   onRegionChange?: (region: string) => void;
   onReset?: () => void;
+  distanceUnit?: DistanceUnit;
+  weightUnit?: WeightUnit;
+  onDistanceUnitChange?: (unit: DistanceUnit) => void;
+  onWeightUnitChange?: (unit: WeightUnit) => void;
 }
 
 const REGION_OPTIONS = [
@@ -44,7 +48,34 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   selectedRegion = "US",
   onRegionChange,
   onReset,
+  distanceUnit = "mi",
+  weightUnit = "lbs",
+  onDistanceUnitChange,
+  onWeightUnitChange,
 }) => {
+  const [internalDistanceUnit, setInternalDistanceUnit] = useState<DistanceUnit>(distanceUnit);
+  const [internalWeightUnit, setInternalWeightUnit] = useState<WeightUnit>(weightUnit);
+
+  const activeDistanceUnit = distanceUnit || internalDistanceUnit;
+  const activeWeightUnit = weightUnit || internalWeightUnit;
+
+  const handleDistanceUnitChange = (u: DistanceUnit) => {
+    setInternalDistanceUnit(u);
+    if (onDistanceUnitChange) onDistanceUnitChange(u);
+  };
+
+  const handleWeightUnitChange = (u: WeightUnit) => {
+    if (u === activeWeightUnit) return;
+    const currentNum = parseFloat(loadWeight) || (activeWeightUnit === "lbs" ? 34000 : 15400);
+    if (u === "kg") {
+      setLoadWeight(Math.round(currentNum / 2.20462).toString());
+    } else {
+      setLoadWeight(Math.round(currentNum * 2.20462).toString());
+    }
+    setInternalWeightUnit(u);
+    if (onWeightUnitChange) onWeightUnitChange(u);
+  };
+
   const [origin, setOrigin] = useState(initialValues?.origin || "");
   const [destination, setDestination] = useState(
     initialValues?.destination || ""
@@ -62,9 +93,15 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       ? initialValues.departure_time.slice(0, 16)
       : getDefaultDeparture()
   );
-  const [loadWeight, setLoadWeight] = useState(
-    initialValues?.load_weight?.toString() || "34000"
-  );
+
+  const [loadWeight, setLoadWeight] = useState<string>(() => {
+    const raw = initialValues?.load_weight || 34000;
+    if (activeWeightUnit === "kg") {
+      return Math.round(raw / 2.20462).toString();
+    }
+    return raw.toString();
+  });
+
   const [stepMiles, setStepMiles] = useState<number>(
     initialValues?.step_miles || 25
   );
@@ -78,7 +115,12 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       setDestination(initialValues.destination);
     }
     if (initialValues?.load_weight !== undefined) {
-      setLoadWeight(initialValues.load_weight.toString());
+      const val = initialValues.load_weight;
+      setLoadWeight(
+        activeWeightUnit === "kg"
+          ? Math.round(val / 2.20462).toString()
+          : val.toString()
+      );
     }
     if (initialValues?.step_miles !== undefined) {
       setStepMiles(initialValues.step_miles);
@@ -92,20 +134,22 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     initialValues?.load_weight,
     initialValues?.step_miles,
     initialValues?.departure_time,
+    activeWeightUnit,
   ]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!origin.trim() || !destination.trim()) return;
 
-    const parsedWeight = parseFloat(loadWeight) || 30000;
+    const rawNum = parseFloat(loadWeight) || (activeWeightUnit === "lbs" ? 34000 : 15400);
+    const parsedWeightLbs = activeWeightUnit === "kg" ? Math.round(rawNum * 2.20462) : rawNum;
     const depIso = new Date(departureTime).toISOString();
 
     onEvaluate({
       origin: origin.trim(),
       destination: destination.trim(),
       departure_time: depIso,
-      load_weight: parsedWeight,
+      load_weight: parsedWeightLbs,
       step_miles: stepMiles,
     });
   };
@@ -264,49 +308,88 @@ export const InputPanel: React.FC<InputPanelProps> = ({
               </div>
             </div>
 
-            {/* Gross Load (lbs) */}
+            {/* Gross Load with Unit Dropdown */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                Gross Load (lbs)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-800">
+                  Gross Load
+                </label>
+                <div className="relative inline-block">
+                  <select
+                    value={activeWeightUnit}
+                    onChange={(e) => handleWeightUnitChange(e.target.value as WeightUnit)}
+                    className="appearance-none text-[10px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md pl-1.5 pr-4 py-0.5 text-slate-700 cursor-pointer focus:outline-none transition"
+                    title="Toggle between pounds (lbs) and kilograms (kg)"
+                  >
+                    <option value="lbs">lbs</option>
+                    <option value="kg">kg</option>
+                  </select>
+                  <ChevronDown className="w-2.5 h-2.5 text-slate-500 absolute right-1 top-1.5 pointer-events-none" />
+                </div>
+              </div>
               <div className="relative flex items-center">
                 <Weight className="w-3.5 h-3.5 text-slate-600 absolute left-2.5 pointer-events-none" />
                 <input
                   type="number"
-                  min="1000"
-                  max="120000"
-                  step="500"
+                  min={activeWeightUnit === "kg" ? "500" : "1000"}
+                  max={activeWeightUnit === "kg" ? "55000" : "120000"}
+                  step={activeWeightUnit === "kg" ? "250" : "500"}
                   required
                   value={loadWeight}
                   onChange={(e) => setLoadWeight(e.target.value)}
-                  placeholder="34000"
+                  placeholder={activeWeightUnit === "kg" ? "15400" : "34000"}
                   className="w-full bg-slate-50 hover:bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-blue-500 transition shadow-2xs"
                 />
               </div>
             </div>
           </div>
 
-          {/* 5. Sampling Step Pills */}
+          {/* 5. Sampling Step Pills with Distance Unit Dropdown */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-800 mb-1 flex items-center gap-1">
-              <Clock className="w-3 h-3 text-slate-600" />
-              <span>Checkpoint Interval</span>
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                <Clock className="w-3 h-3 text-slate-600" />
+                <span>Checkpoint Interval</span>
+              </label>
+              <div className="relative inline-block">
+                <select
+                  value={activeDistanceUnit}
+                  onChange={(e) => handleDistanceUnitChange(e.target.value as DistanceUnit)}
+                  className="appearance-none text-[10px] font-bold bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-md pl-1.5 pr-4 py-0.5 text-slate-700 cursor-pointer focus:outline-none transition"
+                  title="Toggle distance unit between miles (mi) and kilometers (km)"
+                >
+                  <option value="mi">mi</option>
+                  <option value="km">km</option>
+                </select>
+                <ChevronDown className="w-2.5 h-2.5 text-slate-500 absolute right-1 top-1.5 pointer-events-none" />
+              </div>
+            </div>
             <div className="grid grid-cols-3 gap-2">
-              {[10, 25, 50].map((interval) => {
-                const isSelected = stepMiles === interval;
+              {(activeDistanceUnit === "km"
+                ? [
+                    { miles: 10, label: "15 km" },
+                    { miles: 25, label: "40 km" },
+                    { miles: 50, label: "80 km" },
+                  ]
+                : [
+                    { miles: 10, label: "10 mi" },
+                    { miles: 25, label: "25 mi" },
+                    { miles: 50, label: "50 mi" },
+                  ]
+              ).map((opt) => {
+                const isSelected = stepMiles === opt.miles;
                 return (
                   <button
-                    key={interval}
+                    key={opt.miles}
                     type="button"
-                    onClick={() => setStepMiles(interval)}
+                    onClick={() => setStepMiles(opt.miles)}
                     className={`py-1.5 px-2 rounded-xl text-xs font-bold transition ${
                       isSelected
                         ? "bg-[#101c38] text-white shadow-xs"
                         : "bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100"
                     }`}
                   >
-                    {interval} mi
+                    {opt.label}
                   </button>
                 );
               })}

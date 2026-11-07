@@ -1,23 +1,33 @@
 import React from "react";
 import { Clock, Navigation, Shield } from "lucide-react";
-import { RouteOption } from "../types";
+import { RouteOption, DistanceUnit } from "../types";
 
 interface RouteCardProps {
   route: RouteOption;
   isSelected: boolean;
   onSelect: () => void;
+  distanceUnit?: DistanceUnit;
 }
 
 export const RouteCard: React.FC<RouteCardProps> = ({
   route,
   isSelected,
   onSelect,
+  distanceUnit = "mi",
 }) => {
   const { summary, is_recommended, rank, name, distance_miles, duration_hours } =
     route;
 
   const hours = Math.floor(duration_hours);
   const minutes = Math.round((duration_hours - hours) * 60);
+
+  // Convert distance based on unit
+  const formatDist = (m: number) => {
+    if (distanceUnit === "km") {
+      return `${(m * 1.60934).toFixed(1)} km`;
+    }
+    return `${m} mi`;
+  };
 
   // Compute Low/Mod miles
   const lowModMiles = Math.max(
@@ -75,7 +85,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({
           <div>
             <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono">
               <Navigation className="w-3.5 h-3.5 text-slate-700 rotate-45" />
-              <span>{distance_miles} mi</span>
+              <span>{formatDist(distance_miles)}</span>
             </div>
             <span className="text-[10px] text-slate-400 font-semibold ml-4">Distance</span>
           </div>
@@ -101,7 +111,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({
               <span className="text-[10px] text-slate-600 font-sans font-medium">Severe</span>
             </div>
             <span className={`font-semibold ${summary.severe_miles > 0 ? "text-red-600 font-bold" : "text-slate-600"}`}>
-              {summary.severe_miles} mi
+              {formatDist(summary.severe_miles)}
             </span>
           </div>
 
@@ -112,7 +122,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({
               <span className="text-[10px] text-slate-600 font-sans font-medium">High</span>
             </div>
             <span className={`font-semibold ${summary.high_miles > 0 ? "text-orange-500 font-bold" : "text-slate-600"}`}>
-              {summary.high_miles} mi
+              {formatDist(summary.high_miles)}
             </span>
           </div>
 
@@ -123,7 +133,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({
               <span className="text-[10px] text-slate-600 font-sans font-medium">Low/Mod</span>
             </div>
             <span className="text-slate-600 font-medium">
-              {lowModMiles} mi
+              {formatDist(lowModMiles)}
             </span>
           </div>
         </div>

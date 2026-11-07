@@ -9,7 +9,7 @@ import {
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
-import { RouteOption, Checkpoint, CorridorData } from "../types";
+import { RouteOption, Checkpoint, CorridorData, DistanceUnit } from "../types";
 import {
   AlertTriangle,
   Play,
@@ -31,6 +31,7 @@ import {
   Satellite,
   Moon,
   Map,
+  Clock,
 } from "lucide-react";
 import { playTruckAirHorn } from "../utils/audio";
 
@@ -98,6 +99,7 @@ interface MapViewProps {
   selectedCheckpoint?: Checkpoint | null;
   originName?: string;
   destinationName?: string;
+  distanceUnit?: DistanceUnit;
 }
 
 // Distance helper in meters between two lat/lon coordinates
@@ -144,25 +146,85 @@ const createDestinationMarker = (cityName: string) => {
   });
 };
 
-// Animated Commercial Moving Truck Icon with Headlights Beam
+// Animated Commercial 18-Wheeler Moving Semi-Truck Vehicle with Headlights Beam
 const createMovingTruckIcon = (headingDeg: number = 0) => {
   return L.divIcon({
     className: "custom-animated-truck-marker",
     html: `
-      <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; transform: rotate(${headingDeg}deg); transition: transform 0.2s ease-out;">
-        <div style="position: absolute; right: -26px; top: 10px; width: 36px; height: 24px; background: radial-gradient(ellipse at left, rgba(253, 224, 71, 0.9) 0%, rgba(253, 224, 71, 0) 80%); border-radius: 50%; pointer-events: none;"></div>
-        <div style="width: 36px; height: 36px; background: #0f172a; border: 2.5px solid #38bdf8; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.5); color: white;">
-          <svg style="width: 20px; height: 20px; color: #38bdf8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="1" y="3" width="15" height="13"></rect>
-            <polygon points="16 8 20 8 23 11 23 16 16 16 8"></polygon>
-            <circle cx="5.5" cy="18.5" r="2.5"></circle>
-            <circle cx="18.5" cy="18.5" r="2.5"></circle>
-          </svg>
-        </div>
+      <div style="position: relative; width: 36px; height: 74px; transform: rotate(${headingDeg}deg); transition: transform 0.25s linear; filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6)); pointer-events: none;">
+        <!-- Forward Headlight Beams Cone -->
+        <div style="position: absolute; top: -38px; left: -14px; width: 64px; height: 44px; background: radial-gradient(ellipse at 50% 100%, rgba(254, 240, 138, 0.8) 0%, rgba(253, 224, 71, 0.35) 45%, rgba(253, 224, 71, 0) 80%); clip-path: polygon(28% 100%, 72% 100%, 100% 0%, 0% 0%); pointer-events: none; z-index: 1;"></div>
+        
+        <!-- Top-Down Class 8 Semi-Truck Vehicle Sprite -->
+        <svg width="36" height="74" viewBox="0 0 36 74" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; z-index: 2; position: relative;">
+          <!-- Dual Tandem Trailer Axles -->
+          <rect x="2" y="47" width="4" height="9" rx="1.5" fill="#0f172a" />
+          <rect x="30" y="47" width="4" height="9" rx="1.5" fill="#0f172a" />
+          <rect x="2" y="58" width="4" height="9" rx="1.5" fill="#0f172a" />
+          <rect x="30" y="58" width="4" height="9" rx="1.5" fill="#0f172a" />
+
+          <!-- 53ft White Freight Trailer Body -->
+          <rect x="5" y="23" width="26" height="47" rx="3" fill="#ffffff" stroke="#94a3b8" stroke-width="1.2" />
+          <!-- Trailer Structural Ribs -->
+          <line x1="7" y1="28" x2="29" y2="28" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="34" x2="29" y2="34" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="40" x2="29" y2="40" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="46" x2="29" y2="46" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="52" x2="29" y2="52" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="58" x2="29" y2="58" stroke="#cbd5e1" stroke-width="1" />
+          <line x1="7" y1="64" x2="29" y2="64" stroke="#cbd5e1" stroke-width="1" />
+
+          <!-- Trailer Rear Stop / Brake Lights -->
+          <rect x="5.5" y="68.5" width="4" height="1.5" rx="0.5" fill="#ef4444" />
+          <rect x="26.5" y="68.5" width="4" height="1.5" rx="0.5" fill="#ef4444" />
+          <rect x="10" y="69" width="16" height="1" fill="#334155" />
+
+          <!-- Fifth Wheel Hitch -->
+          <rect x="14" y="19" width="8" height="6" rx="1" fill="#334155" />
+
+          <!-- Tractor Drive Axle Wheels -->
+          <rect x="3" y="16" width="3.5" height="7" rx="1.5" fill="#0f172a" />
+          <rect x="29.5" y="16" width="3.5" height="7" rx="1.5" fill="#0f172a" />
+
+          <!-- Front Steer Axle Wheels -->
+          <rect x="3" y="5" width="3.5" height="7" rx="1.5" fill="#0f172a" />
+          <rect x="29.5" y="5" width="3.5" height="7" rx="1.5" fill="#0f172a" />
+
+          <!-- Tractor Cabin (Class 8 Long-Haul Cab) -->
+          <rect x="6" y="11" width="24" height="11" rx="2.5" fill="#1e3a8a" stroke="#172554" stroke-width="1" />
+          <!-- Aerodynamic Cab Extenders -->
+          <path d="M6 13 L4 21 L7 21 Z" fill="#2563eb" />
+          <path d="M30 13 L32 21 L29 21 Z" fill="#2563eb" />
+
+          <!-- Hood & Front Engine Compartment -->
+          <path d="M8 11 L9 3 C9 1.8 10.5 1 13 1 L23 1 C25.5 1 27 1.8 27 3 L28 11 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1" />
+          <!-- Chrome Front Grill -->
+          <path d="M12 1.5 L24 1.5 L23 4 L13 4 Z" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.5" />
+          <line x1="14" y1="2.6" x2="22" y2="2.6" stroke="#475569" stroke-width="0.5" />
+
+          <!-- Curved Windshield -->
+          <path d="M10 9 C11 7.2 13 6.8 18 6.8 C23 6.8 25 7.2 26 9 L25 11.5 L11 11.5 Z" fill="#0f172a" stroke="#38bdf8" stroke-width="0.8" />
+          <!-- Roof Clearance Amber Marker Lights -->
+          <circle cx="13" cy="5.8" r="0.8" fill="#f59e0b" />
+          <circle cx="18" cy="5.5" r="0.8" fill="#f59e0b" />
+          <circle cx="23" cy="5.8" r="0.8" fill="#f59e0b" />
+
+          <!-- Chrome Exhaust Stacks -->
+          <circle cx="8" cy="12" r="1.3" fill="#e2e8f0" stroke="#475569" stroke-width="0.6" />
+          <circle cx="28" cy="12" r="1.3" fill="#e2e8f0" stroke="#475569" stroke-width="0.6" />
+
+          <!-- Dual Side Mirrors -->
+          <rect x="2" y="7.5" width="4" height="1.6" rx="0.5" fill="#cbd5e1" stroke="#475569" stroke-width="0.5" />
+          <rect x="30" y="7.5" width="4" height="1.6" rx="0.5" fill="#cbd5e1" stroke="#475569" stroke-width="0.5" />
+
+          <!-- Front Headlights Bulbs -->
+          <circle cx="10.5" cy="2" r="1.2" fill="#fef08a" />
+          <circle cx="25.5" cy="2" r="1.2" fill="#fef08a" />
+        </svg>
       </div>
     `,
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
+    iconSize: [36, 74],
+    iconAnchor: [18, 37],
   });
 };
 
@@ -211,9 +273,12 @@ export const MapView: React.FC<MapViewProps> = ({
   corridorData,
   showHeatmap,
   onToggleHeatmap,
+  forecastHour = 0,
+  onHourChange,
   selectedCheckpoint,
   originName = "Origin",
   destinationName = "Destination",
+  distanceUnit = "mi",
 }) => {
   // Map View Mode: 3D Topo Terrain, Satellite Hybrid, Clean Dispatch, Night Ops, OSM Streets
   const [mapStyle, setMapStyle] = useState<MapViewStyle>("positron");
@@ -254,6 +319,9 @@ export const MapView: React.FC<MapViewProps> = ({
     if (selectedRoute?.checkpoints) {
       setPendingCheckpoints([...selectedRoute.checkpoints]);
     }
+    if (onHourChange) {
+      onHourChange(0);
+    }
   };
 
   useEffect(() => {
@@ -288,6 +356,31 @@ export const MapView: React.FC<MapViewProps> = ({
       baseIdx,
     };
   }, [selectedRoute, simProgress]);
+
+  // Dynamic Weather Heatmap Sync: as the truck drives towards destination, update forecast hour
+  useEffect(() => {
+    if (!isPlaying || !selectedRoute) return;
+    const totalHours = selectedRoute.duration_hours || 6;
+    const currentSimHour = Math.min(48, Math.max(0, Math.round(simProgress * totalHours)));
+    if (onHourChange && currentSimHour !== forecastHour) {
+      onHourChange(currentSimHour);
+    }
+  }, [isPlaying, simProgress, selectedRoute, forecastHour, onHourChange]);
+
+  // Nearest checkpoint to current truck location for live weather telemetry
+  const currentNearestCp = useMemo(() => {
+    if (!truckState || !selectedRoute?.checkpoints || selectedRoute.checkpoints.length === 0) return null;
+    let closest: Checkpoint | null = null;
+    let minDist = Infinity;
+    for (const cp of selectedRoute.checkpoints) {
+      const d = getDistanceMeters(truckState.lat, truckState.lon, cp.lat, cp.lon);
+      if (d < minDist) {
+        minDist = d;
+        closest = cp;
+      }
+    }
+    return closest;
+  }, [truckState, selectedRoute]);
 
   // Simulation Animation Loop using requestAnimationFrame
   useEffect(() => {
@@ -436,25 +529,26 @@ export const MapView: React.FC<MapViewProps> = ({
               {corridorData.points.map((pt, idx) => {
                 const color =
                   pt.risk_level === "No Travel"
-                    ? "#991b1b"
+                    ? "#7f1d1d"
                     : pt.risk_level === "Severe"
-                    ? "#ef4444"
+                    ? "#dc2626"
                     : pt.risk_level === "High"
-                    ? "#f97316"
+                    ? "#ea580c"
                     : pt.risk_level === "Moderate"
-                    ? "#eab308"
-                    : "#22c55e";
+                    ? "#ca8a04"
+                    : "#16a34a";
 
                 return (
                   <CircleMarker
                     key={`corridor-pt-${idx}`}
                     center={[pt.lat, pt.lon]}
-                    radius={16}
+                    radius={34}
                     pathOptions={{
                       color: color,
                       fillColor: color,
-                      fillOpacity: mapStyle === "dark" ? 0.38 : 0.28,
-                      weight: 0,
+                      fillOpacity: mapStyle === "dark" ? 0.45 : 0.35,
+                      weight: 1.5,
+                      opacity: mapStyle === "dark" ? 0.6 : 0.4,
                     }}
                   />
                 );
@@ -527,14 +621,14 @@ export const MapView: React.FC<MapViewProps> = ({
               position={[truckState.lat, truckState.lon]}
               icon={createMovingTruckIcon(truckState.headingDeg)}
             >
-              <Tooltip direction="top" offset={[0, -14]} opacity={0.98} permanent={isPlaying}>
+              <Tooltip direction="top" offset={[0, -42]} opacity={0.98} permanent={isPlaying}>
                 <div className="font-mono text-center text-xs">
                   <div className="font-black text-sky-600 flex items-center justify-center gap-1">
                     <Truck className="w-3.5 h-3.5" />
-                    <span>Freightliner Cascadia</span>
+                    <span>Commercial Freightliner</span>
                   </div>
-                  <div className="text-[10px] text-slate-600">
-                    Progress: {Math.round(simProgress * 100)}% • 62 MPH
+                  <div className="text-[10px] text-slate-600 font-bold">
+                    {Math.round(simProgress * 100)}% • {distanceUnit === "km" ? "100 km/h" : "62 mph"}
                   </div>
                 </div>
               </Tooltip>
@@ -773,7 +867,7 @@ export const MapView: React.FC<MapViewProps> = ({
             </div>
             <div>
               <div className="text-xs font-black flex items-center gap-2">
-                <span>Checkpoint #{activePopoverCP.index} ({activePopoverCP.mile_marker} mi)</span>
+                <span>Checkpoint #{activePopoverCP.index} ({distanceUnit === "km" ? `${Math.round(activePopoverCP.mile_marker * 1.60934)} km` : `${activePopoverCP.mile_marker} mi`})</span>
                 <span
                   className={`px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase ${
                     activePopoverCP.final_level === "Severe" || activePopoverCP.final_level === "No Travel"
@@ -790,6 +884,66 @@ export const MapView: React.FC<MapViewProps> = ({
                 Wind: {activePopoverCP.weather?.wind_mph} mph • Rain: {activePopoverCP.weather?.rain_in_per_hr} in/hr • ETA {activePopoverCP.eta_formatted}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9b. LIVE DISPATCH SIMULATION TELEMETRY HUD (Active when truck is moving) */}
+      {(isPlaying || simProgress > 0) && selectedRoute && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto max-w-xl w-[92%] sm:w-auto">
+          <div className="bg-slate-900/95 text-white border border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-2xl backdrop-blur-md flex items-center space-x-3.5">
+            <div className="flex items-center space-x-2 shrink-0">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-sky-400">
+                {isPlaying ? "Sim En Route" : "Sim Paused"}
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-slate-700 shrink-0"></div>
+
+            <div className="flex items-center space-x-2 min-w-[130px]">
+              <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-sky-400 to-emerald-400 h-1.5 rounded-full transition-all duration-150"
+                  style={{ width: `${Math.round(simProgress * 100)}%` }}
+                ></div>
+              </div>
+              <span className="font-mono text-[10px] text-slate-300 font-bold shrink-0">
+                {Math.round(simProgress * 100)}%
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-slate-700 shrink-0"></div>
+
+            <div className="text-[11px] text-slate-300 flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3 h-3 text-sky-400" />
+              <span>
+                +{(simProgress * (selectedRoute.duration_hours || 6)).toFixed(1)}h / {selectedRoute.duration_hours}h
+              </span>
+            </div>
+
+            {currentNearestCp && (
+              <>
+                <div className="h-4 w-px bg-slate-700 shrink-0 hidden sm:block"></div>
+                <div className="text-[10px] text-slate-300 hidden sm:flex items-center gap-1.5 shrink-0">
+                  <span>Wind: <strong>{currentNearestCp.weather?.wind_mph || 14} mph</strong></span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded font-bold uppercase text-[9px] ${
+                      currentNearestCp.final_level === "Severe" || currentNearestCp.final_level === "No Travel"
+                        ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                        : currentNearestCp.final_level === "High"
+                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                        : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                    }`}
+                  >
+                    {currentNearestCp.final_level}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

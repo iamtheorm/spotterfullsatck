@@ -1,5 +1,5 @@
 import React from "react";
-import { RouteOption } from "../types";
+import { RouteOption, DistanceUnit } from "../types";
 import { Check, ShieldCheck, X } from "lucide-react";
 
 interface RouteComparisonProps {
@@ -8,6 +8,7 @@ interface RouteComparisonProps {
   onSelectRoute: (id: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  distanceUnit?: DistanceUnit;
 }
 
 export const RouteComparison: React.FC<RouteComparisonProps> = ({
@@ -16,10 +17,18 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
   onSelectRoute,
   isOpen,
   onClose,
+  distanceUnit = "mi",
 }) => {
   if (!isOpen || !routes || routes.length === 0) return null;
 
   const topRoute = routes.find((r) => r.is_recommended) || routes[0];
+
+  const formatDist = (m: number) => {
+    if (distanceUnit === "km") {
+      return `${(m * 1.60934).toFixed(1)} km`;
+    }
+    return `${m} mi`;
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -31,7 +40,7 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
               <span>Alternative Routes Decision Matrix</span>
             </h2>
             <p className="text-xs text-slate-500">
-              Ranked strictly by: Fewest Severe Miles → Fewest High Miles → Lowest Avg Risk → Travel Time
+              Ranked strictly by: Fewest Severe Distance → Fewest High Distance → Lowest Avg Risk → Travel Time
             </p>
           </div>
           <button
@@ -46,7 +55,7 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs flex items-center gap-2.5">
           <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <span className="text-slate-800">
-            <strong>{topRoute.name}</strong> is recommended with only <strong>{topRoute.summary.severe_miles} mi</strong> Severe and <strong>{topRoute.summary.high_miles} mi</strong> High weather exposure.
+            <strong>{topRoute.name}</strong> is recommended with only <strong>{formatDist(topRoute.summary.severe_miles)}</strong> Severe and <strong>{formatDist(topRoute.summary.high_miles)}</strong> High weather exposure.
           </span>
         </div>
 
@@ -56,8 +65,8 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
             <thead className="bg-slate-50 text-slate-700 uppercase tracking-wider text-[10px] font-bold border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-3">Route Option</th>
-                <th className="py-2.5 px-3 text-red-600">Severe Miles</th>
-                <th className="py-2.5 px-3 text-amber-600">High Miles</th>
+                <th className="py-2.5 px-3 text-red-600">Severe ({distanceUnit})</th>
+                <th className="py-2.5 px-3 text-amber-600">High ({distanceUnit})</th>
                 <th className="py-2.5 px-3">Avg Risk</th>
                 <th className="py-2.5 px-3">Travel Time</th>
                 <th className="py-2.5 px-3">Distance</th>
@@ -104,11 +113,11 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
                     </td>
 
                     <td className="py-2.5 px-3 font-bold text-red-600">
-                      {r.summary.severe_miles} mi
+                      {formatDist(r.summary.severe_miles)}
                     </td>
 
                     <td className="py-2.5 px-3 font-bold text-amber-600">
-                      {r.summary.high_miles} mi
+                      {formatDist(r.summary.high_miles)}
                     </td>
 
                     <td className="py-2.5 px-3">
@@ -130,7 +139,7 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
                     </td>
 
                     <td className="py-2.5 px-3 text-slate-500">
-                      {r.distance_miles} mi
+                      {formatDist(r.distance_miles)}
                     </td>
 
                     <td className="py-2.5 px-3 text-right font-sans">

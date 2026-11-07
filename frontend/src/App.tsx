@@ -11,6 +11,8 @@ import {
   RouteEvaluationRequest,
   Checkpoint,
   CorridorData,
+  DistanceUnit,
+  WeightUnit,
 } from "./types";
 import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
 import { AlertCircle, SlidersHorizontal, ArrowRight, Truck } from "lucide-react";
@@ -162,6 +164,37 @@ export function App() {
     evaluation?.corridor
   );
   const [isLoadingCorridor, setIsLoadingCorridor] = useState<boolean>(false);
+
+  // Unit preferences state (miles vs kilometers, pounds vs kilograms)
+  const [distanceUnit, setDistanceUnit] = useState<DistanceUnit>(() => {
+    try {
+      return (localStorage.getItem("spotter_distance_unit") as DistanceUnit) || "mi";
+    } catch {
+      return "mi";
+    }
+  });
+
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(() => {
+    try {
+      return (localStorage.getItem("spotter_weight_unit") as WeightUnit) || "lbs";
+    } catch {
+      return "lbs";
+    }
+  });
+
+  const handleDistanceUnitChange = (u: DistanceUnit) => {
+    setDistanceUnit(u);
+    try {
+      localStorage.setItem("spotter_distance_unit", u);
+    } catch {}
+  };
+
+  const handleWeightUnitChange = (u: WeightUnit) => {
+    setWeightUnit(u);
+    try {
+      localStorage.setItem("spotter_weight_unit", u);
+    } catch {}
+  };
 
   const corridorDebounceRef = useRef<any>(null);
 
@@ -328,6 +361,10 @@ export function App() {
               selectedRegion={selectedRegion}
               onRegionChange={handleRegionChange}
               onReset={handleResetAll}
+              distanceUnit={distanceUnit}
+              weightUnit={weightUnit}
+              onDistanceUnitChange={handleDistanceUnitChange}
+              onWeightUnitChange={handleWeightUnitChange}
             />
           </div>
 
@@ -361,6 +398,7 @@ export function App() {
                       setSelectedRouteId(route.id);
                       setSelectedRouteName(route.name);
                     }}
+                    distanceUnit={distanceUnit}
                   />
                 ))}
               </div>
@@ -406,6 +444,7 @@ export function App() {
             onHourChange={setForecastHour}
             isLoadingCorridor={isLoadingCorridor}
             selectedCheckpoint={selectedCheckpoint}
+            distanceUnit={distanceUnit}
           />
         </div>
       </div>
@@ -434,6 +473,7 @@ export function App() {
         }}
         isOpen={isComparisonOpen}
         onClose={() => setIsComparisonOpen(false)}
+        distanceUnit={distanceUnit}
       />
     </div>
   );

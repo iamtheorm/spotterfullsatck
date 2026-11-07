@@ -112,3 +112,7 @@ export interface RouteEvaluationRequest {
   ors_api_key?: string;
 }
 
+export type DistanceUnit = "mi" | "km";
+export type WeightUnit = "lbs" | "kg";
+
+
