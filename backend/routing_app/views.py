@@ -53,6 +53,7 @@ class RouteEvaluationView(APIView):
         departure_time = data["departure_time"]
         load_weight_lbs = data["load_weight"]
         step_miles = float(data["step_miles"])
+        weather_scenario = data.get("weather_scenario", "live")
         ors_key = data.get("ors_api_key") or getattr(settings, "ORS_API_KEY", "")
 
         # 1. Geocode origin and destination
@@ -103,12 +104,16 @@ class RouteEvaluationView(APIView):
         evaluated_routes = []
         routes_coords = []
 
-        for route in raw_routes:
+        for route_idx, route in enumerate(raw_routes):
             checkpoints = route.get("checkpoints", [])
             routes_coords.append(route.get("coordinates", []))
 
             # Fetch weather forecast for each checkpoint at its arrival timestamp
-            checkpoints_with_weather = fetch_weather_for_checkpoints(checkpoints)
+            checkpoints_with_weather = fetch_weather_for_checkpoints(
+                checkpoints,
+                weather_scenario=weather_scenario,
+                route_index=route_idx,
+            )
 
             # Evaluate risk at each checkpoint
             evaluated_checkpoints = []

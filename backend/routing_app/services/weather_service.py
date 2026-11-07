@@ -115,13 +115,73 @@ def generate_synthetic_weather_for_point(lat: float, lon: float, eta: datetime) 
     }
 
 
-def fetch_weather_for_checkpoints(checkpoints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def generate_scenario_weather(
+    cp: Dict[str, Any],
+    cp_index: int,
+    total_cps: int,
+    scenario: str,
+    route_index: int,
+) -> Dict[str, float]:
     """
-    Fetches real Open-Meteo forecasts for each checkpoint at its specific ETA.
-    Supports multi-location batching up to 50 points per query.
+    Generates realistic severe weather scenarios for assessment demonstration:
+    - Route 0 (Recommended): Safe bypass corridor with mild/moderate winds (15-22 mph).
+    - Route 1 (Arterial): Traverses directly through a severe storm front (48-56 mph winds, 0.65 in/hr rain).
+    - Route 2 (Alternative): High crosswinds (36-43 mph winds).
+    """
+    progress = cp_index / max(1, total_cps - 1)
+
+    if scenario in ("severe_storm", "winter_blizzard"):
+        if route_index == 0:
+            # Safe recommended bypass corridor
+            wind = 15.0 + 7.0 * math.sin(progress * math.pi)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.02, "snow_in_per_hr": 0.0}
+        elif route_index == 1:
+            # Traverses storm front between 25% and 75% of route
+            in_storm = 0.25 <= progress <= 0.75
+            if in_storm:
+                peak = math.sin((progress - 0.25) / 0.5 * math.pi)
+                wind = 46.0 + 10.0 * peak  # 46 - 56 mph (triggers Severe / No Travel)
+                rain = 0.40 + 0.45 * peak  # 0.40 - 0.85 in/hr (Severe rain)
+                snow = (1.5 + 1.2 * peak) if cp.get("lat", 0) > 38.0 else 0.0
+                return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": round(snow, 3)}
+            else:
+                return {"wind_mph": 22.0, "rain_in_per_hr": 0.05, "snow_in_per_hr": 0.0}
+        else:
+            # Elevated crosswinds corridor
+            in_wind_pocket = 0.3 <= progress <= 0.8
+            wind = (36.0 + 7.0 * math.sin(progress * math.pi)) if in_wind_pocket else 20.0
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.12, "snow_in_per_hr": 0.0}
+
+    elif scenario == "high_winds":
+        if route_index in (1, 2):
+            wind = 38.0 + 10.0 * math.sin(progress * math.pi)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
+        return {"wind_mph": 18.0, "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
+
+    return {"wind_mph": 12.0, "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
+
+
+def fetch_weather_for_checkpoints(
+    checkpoints: List[Dict[str, Any]],
+    weather_scenario: str = "live",
+    route_index: int = 0,
+) -> List[Dict[str, Any]]:
+    """
+    Fetches real Open-Meteo forecasts for each checkpoint at its specific ETA,
+    or generates controlled severe scenarios for assessment evaluations.
     """
     if not checkpoints:
         return []
+
+    # If an explicit severe scenario is requested, generate deterministic scenario weather
+    if weather_scenario and weather_scenario != "live":
+        final_output = []
+        for i, cp in enumerate(checkpoints):
+            wx = generate_scenario_weather(cp, i, len(checkpoints), weather_scenario, route_index)
+            cp_with_wx = dict(cp)
+            cp_with_wx["weather"] = wx
+            final_output.append(cp_with_wx)
+        return final_output
 
     # Map checkpoints needing external fetch vs cached
     results: List[Optional[Dict[str, float]]] = [None] * len(checkpoints)

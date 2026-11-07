@@ -513,28 +513,27 @@ export const MapView: React.FC<MapViewProps> = ({
           {showHeatmap && corridorData && corridorData.points && (
             <>
               {corridorData.points.map((pt, idx) => {
-                const color =
+                // Distinct, soft radar tints so it never conflicts with route checkpoint pins
+                const radarColor =
                   pt.risk_level === "No Travel"
-                    ? "#7f1d1d"
+                    ? "#991b1b"
                     : pt.risk_level === "Severe"
-                    ? "#dc2626"
+                    ? "#c2410c"
                     : pt.risk_level === "High"
-                    ? "#ea580c"
+                    ? "#d97706"
                     : pt.risk_level === "Moderate"
-                    ? "#ca8a04"
-                    : "#16a34a";
+                    ? "#0284c7"
+                    : "#06b6d4";
 
                 return (
                   <CircleMarker
                     key={`corridor-pt-${idx}`}
                     center={[pt.lat, pt.lon]}
-                    radius={34}
+                    radius={22}
                     pathOptions={{
-                      color: color,
-                      fillColor: color,
-                      fillOpacity: mapStyle === "dark" ? 0.45 : 0.35,
-                      weight: 1.5,
-                      opacity: mapStyle === "dark" ? 0.6 : 0.4,
+                      stroke: false,
+                      fillColor: radarColor,
+                      fillOpacity: mapStyle === "dark" ? 0.25 : 0.18,
                     }}
                   />
                 );

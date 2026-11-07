@@ -157,9 +157,9 @@ export function App() {
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
 
-  // Corridor slider state
+  // Corridor slider state (Heatmap overlay defaults to false for clean route view)
   const [forecastHour, setForecastHour] = useState<number>(0);
-  const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [corridorData, setCorridorData] = useState<CorridorData | undefined>(
     evaluation?.corridor
   );

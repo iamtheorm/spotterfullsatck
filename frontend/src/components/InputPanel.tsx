@@ -11,6 +11,7 @@ import {
   AlertCircle,
   RotateCcw,
   ChevronDown,
+  CloudLightning,
 } from "lucide-react";
 import { RouteEvaluationRequest, DistanceUnit, WeightUnit } from "../types";
 import { CityAutocomplete } from "./CityAutocomplete";
@@ -106,6 +107,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     initialValues?.step_miles || 25
   );
 
+  const [weatherScenario, setWeatherScenario] = useState<"live" | "severe_storm">(
+    (initialValues as any)?.weather_scenario || "live"
+  );
+
   // Sync internal form inputs when parent initialValues update
   React.useEffect(() => {
     if (initialValues?.origin !== undefined && initialValues.origin !== origin) {
@@ -151,6 +156,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       departure_time: depIso,
       load_weight: parsedWeightLbs,
       step_miles: stepMiles,
+      weather_scenario: weatherScenario,
     });
   };
 
@@ -393,6 +399,50 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Weather Condition Mode: Live Open-Meteo vs Severe Front Simulation */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
+                <CloudLightning className="w-3 h-3 text-amber-500" />
+                <span>Weather Condition Mode</span>
+              </label>
+              {weatherScenario === "severe_storm" && (
+                <span className="text-[9px] font-mono uppercase bg-red-100 text-red-700 px-1.5 py-0.2 rounded font-black tracking-wider">
+                  Storm Active
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setWeatherScenario("live")}
+                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                  weatherScenario === "live"
+                    ? "bg-[#101c38] text-white shadow-xs"
+                    : "bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Fetches real-time hourly forecasts from Open-Meteo"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Live Weather</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWeatherScenario("severe_storm")}
+                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+                  weatherScenario === "severe_storm"
+                    ? "bg-red-600 text-white shadow-xs"
+                    : "bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100"
+                }`}
+                title="Injects a realistic crosswind & severe storm front to test risk tiers, avoidance ranking, and air horn"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-300"></span>
+                <span>Severe Storm Front</span>
+              </button>
             </div>
           </div>
 

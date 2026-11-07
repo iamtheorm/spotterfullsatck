@@ -27,16 +27,23 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<any>(null);
+  const isSelectedRef = useRef(false);
 
   // Sync internal input value if prop changes from outside (e.g. preset or swap)
   useEffect(() => {
     setInputValue(value);
+    isSelectedRef.current = true;
   }, [value]);
 
   // Debounced search logic (300ms)
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
+    }
+
+    if (isSelectedRef.current) {
+      isSelectedRef.current = false;
+      return;
     }
 
     if (!inputValue || inputValue.trim().length < 2) {
@@ -88,6 +95,10 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
 
   const handleSelect = (item: LocationSuggestion) => {
     const selectedText = item.display_name || item.label;
+    isSelectedRef.current = true;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
     setInputValue(selectedText);
     onChange(selectedText, item);
     setIsOpen(false);
@@ -95,6 +106,7 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    isSelectedRef.current = false;
     const nextVal = e.target.value;
     setInputValue(nextVal);
     onChange(nextVal);
@@ -155,7 +167,7 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={() => {
-            if (suggestions.length > 0) setIsOpen(true);
+            if (!isSelectedRef.current && suggestions.length > 0) setIsOpen(true);
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -166,6 +178,7 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
           <button
             type="button"
             onClick={() => {
+              isSelectedRef.current = false;
               setInputValue("");
               onChange("");
               setSuggestions([]);

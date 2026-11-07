@@ -109,6 +109,7 @@ export interface RouteEvaluationRequest {
   departure_time: string;
   load_weight: number;
   step_miles: number;
+  weather_scenario?: "live" | "severe_storm" | "high_winds" | "winter_blizzard";
   ors_api_key?: string;
 }
 

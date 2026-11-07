@@ -31,6 +31,12 @@ class RouteEvaluationRequestSerializer(serializers.Serializer):
         default=25,
         help_text="Sampling checkpoint interval in miles (10, 25, or 50)",
     )
+    weather_scenario = serializers.ChoiceField(
+        choices=["live", "severe_storm", "high_winds", "winter_blizzard"],
+        default="live",
+        required=False,
+        help_text="Weather simulation mode: live (Open-Meteo), severe_storm, high_winds, or winter_blizzard",
+    )
     ors_api_key = serializers.CharField(
         max_length=200,
         required=False,
