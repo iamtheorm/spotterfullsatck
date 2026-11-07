@@ -62,7 +62,7 @@ def generate_corridor_grid(
     target_time = departure_time + timedelta(hours=forecast_hour)
     target_hour_str = target_time.strftime("%Y-%m-%dT%H:00")
 
-    cache_key = f"corridor_{round(min_lat,1)}_{round(min_lon,1)}_{round(max_lat,1)}_{round(max_lon,1)}_{target_hour_str}"
+    cache_key = f"corridor_v2_{round(min_lat,1)}_{round(min_lon,1)}_{round(max_lat,1)}_{round(max_lon,1)}_{target_hour_str}"
     cached_data = cache.get(cache_key)
     if cached_data:
         return cached_data

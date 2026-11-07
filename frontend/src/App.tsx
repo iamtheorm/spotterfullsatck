@@ -129,7 +129,8 @@ export function App() {
       localStorage.removeItem("safecorridor_evaluation_v2");
       localStorage.removeItem("safecorridor_evaluation_v3");
       localStorage.removeItem("safecorridor_evaluation_v4");
-      const stored = localStorage.getItem("safecorridor_evaluation_v5");
+      localStorage.removeItem("safecorridor_evaluation_v5");
+      const stored = localStorage.getItem("safecorridor_evaluation_v6");
       if (stored) {
         const parsed = JSON.parse(stored);
         return ensureDistinctRouteGeometries(parsed);
@@ -215,6 +216,7 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v6");
       localStorage.removeItem("safecorridor_evaluation_v5");
       localStorage.removeItem("safecorridor_evaluation_v4");
       localStorage.removeItem("safecorridor_evaluation_v3");
@@ -263,7 +265,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("safecorridor_evaluation_v5", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v6", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names
@@ -408,6 +410,17 @@ export function App() {
                   <h3 className="text-xs font-black text-slate-900 tracking-tight">
                     Alternative Routes ({evaluation.routes.length})
                   </h3>
+                  {evaluation.params?.departure_time && (
+                    <span className="text-[10px] font-mono font-bold text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded-md">
+                      Dep:{" "}
+                      {new Date(evaluation.params.departure_time).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  )}
                 </div>
 
                 <button

@@ -82,16 +82,26 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     initialValues?.destination || ""
   );
 
+  const toLocalDateTimeInput = (isoOrDate?: string | Date): string => {
+    const d = isoOrDate ? new Date(isoOrDate) : new Date();
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
   const getDefaultDeparture = () => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
-    d.setHours(2, 30, 0, 0);
-    return d.toISOString().slice(0, 16);
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+    return toLocalDateTimeInput(d);
   };
 
   const [departureTime, setDepartureTime] = useState(
     initialValues?.departure_time
-      ? initialValues.departure_time.slice(0, 16)
+      ? toLocalDateTimeInput(initialValues.departure_time)
       : getDefaultDeparture()
   );
 
@@ -110,6 +120,9 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   const [weatherScenario, setWeatherScenario] = useState<"live" | "severe_storm">(
     (initialValues as any)?.weather_scenario || "live"
   );
+
+  const timeEvalDebounceRef = React.useRef<any>(null);
+  const weightEvalDebounceRef = React.useRef<any>(null);
 
   // Sync internal form inputs when parent initialValues update
   React.useEffect(() => {
@@ -131,7 +144,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       setStepMiles(initialValues.step_miles);
     }
     if (initialValues?.departure_time !== undefined) {
-      setDepartureTime(initialValues.departure_time.slice(0, 16));
+      const localFormatted = toLocalDateTimeInput(initialValues.departure_time);
+      if (localFormatted !== departureTime) {
+        setDepartureTime(localFormatted);
+      }
     }
   }, [
     initialValues?.origin,
@@ -144,13 +160,21 @@ export const InputPanel: React.FC<InputPanelProps> = ({
 
   const triggerEvaluate = (
     overrideScenario?: "live" | "severe_storm",
-    overrideStepMiles?: number
+    overrideStepMiles?: number,
+    overrideDepartureTime?: string,
+    overrideLoadWeight?: string
   ) => {
     if (!origin.trim() || !destination.trim()) return;
 
-    const rawNum = parseFloat(loadWeight) || (activeWeightUnit === "lbs" ? 34000 : 15400);
+    const weightStr = overrideLoadWeight ?? loadWeight;
+    const rawNum = parseFloat(weightStr) || (activeWeightUnit === "lbs" ? 34000 : 15400);
     const parsedWeightLbs = activeWeightUnit === "kg" ? Math.round(rawNum * 2.20462) : rawNum;
-    const depIso = new Date(departureTime).toISOString();
+
+    const depTimeStr = overrideDepartureTime ?? departureTime;
+    const parsedDate = new Date(depTimeStr);
+    const depIso = isNaN(parsedDate.getTime())
+      ? new Date().toISOString()
+      : parsedDate.toISOString();
 
     onEvaluate({
       origin: origin.trim(),
@@ -160,6 +184,33 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       step_miles: overrideStepMiles ?? stepMiles,
       weather_scenario: overrideScenario ?? weatherScenario,
     });
+  };
+
+  const handleDepartureTimeChange = (nextTime: string) => {
+    setDepartureTime(nextTime);
+    if (!nextTime || isNaN(new Date(nextTime).getTime())) return;
+    if (origin.trim() && destination.trim()) {
+      if (timeEvalDebounceRef.current) {
+        clearTimeout(timeEvalDebounceRef.current);
+      }
+      timeEvalDebounceRef.current = setTimeout(() => {
+        triggerEvaluate(weatherScenario, stepMiles, nextTime, loadWeight);
+      }, 300);
+    }
+  };
+
+  const handleLoadWeightChange = (nextWeight: string) => {
+    setLoadWeight(nextWeight);
+    const num = parseFloat(nextWeight);
+    if (!num || num < 500) return;
+    if (hasEvaluatedRoutes && origin.trim() && destination.trim()) {
+      if (weightEvalDebounceRef.current) {
+        clearTimeout(weightEvalDebounceRef.current);
+      }
+      weightEvalDebounceRef.current = setTimeout(() => {
+        triggerEvaluate(weatherScenario, stepMiles, departureTime, nextWeight);
+      }, 450);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -329,7 +380,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   type="datetime-local"
                   required
                   value={departureTime}
-                  onChange={(e) => setDepartureTime(e.target.value)}
+                  onChange={(e) => handleDepartureTimeChange(e.target.value)}
                   className="w-full bg-slate-50 hover:bg-white border border-slate-200 rounded-xl pl-8 pr-2 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-blue-500 transition shadow-2xs"
                 />
               </div>
@@ -363,7 +414,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   step={activeWeightUnit === "kg" ? "250" : "500"}
                   required
                   value={loadWeight}
-                  onChange={(e) => setLoadWeight(e.target.value)}
+                  onChange={(e) => handleLoadWeightChange(e.target.value)}
                   placeholder={activeWeightUnit === "kg" ? "15400" : "34000"}
                   className="w-full bg-slate-50 hover:bg-white border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-blue-500 transition shadow-2xs"
                 />

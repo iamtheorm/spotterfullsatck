@@ -1075,10 +1075,24 @@ def fetch_osrm_routes(
     return None
 
 
+def _route_mid_centroid(route: Dict[str, Any]) -> Tuple[float, float]:
+    """Computes the average (lat, lon) across the middle 20%-80% of a route's polyline."""
+    coords = route.get("coordinates", [])
+    if not coords:
+        return (0.0, 0.0)
+    n = len(coords)
+    i_start = max(0, int(n * 0.2))
+    i_end = min(n, max(i_start + 1, int(n * 0.8)))
+    slice_coords = coords[i_start:i_end] or coords
+    mean_lon = sum(pt[0] for pt in slice_coords) / len(slice_coords)
+    mean_lat = sum(pt[1] for pt in slice_coords) / len(slice_coords)
+    return (mean_lat, mean_lon)
+
+
 def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[str] = None, dest_name: Optional[str] = None):
     """
     Assigns realistic, corridor-specific names tailored to the origin and destination cities,
-    avoiding generic labels across different locations.
+    matching each route's actual geographic position (North/Central/South or West/Central/East).
     """
     if not routes:
         return
@@ -1115,14 +1129,14 @@ def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[st
             "US-40 E & US-287 S Southern Regional Corridor",
         ],
         "new york->los angeles": [
-            "I-80 W Transcontinental Freight Arterial",
             "I-70 W Central Rocky Mountain Route",
+            "I-80 W Transcontinental Northern Arterial",
             "I-40 W Southern Transcontinental Corridor",
         ],
         "seattle->los angeles": [
             "I-5 S Pacific Highway Freight Corridor",
-            "US-101 Coastal Bypass Route",
             "US-97 S Central Cascade Inland Route",
+            "US-101 Coastal Bypass Route",
         ],
         "mumbai->pune": [
             "Mumbai-Pune Expressway (Yashwantrao Chavan Arterial)",
@@ -1130,6 +1144,34 @@ def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[st
             "Panvel-Khopoli Commercial Freight Bypass",
         ],
     }
+
+    if len(routes) == 3:
+        centroids = [_route_mid_centroid(r) for r in routes]
+        if key == "chicago->dallas":
+            # Sort by mean longitude: West (lowest lon) -> Central -> East (highest lon)
+            order_by_lon = sorted(range(3), key=lambda idx: centroids[idx][1])
+            lon_names = [
+                "I-80 W & I-35 S Western Bypass (via Kansas City)",
+                "I-55 S & I-44 W Direct Arterial (via St. Louis)",
+                "I-57 S & I-40 W Eastern Corridor (via Memphis)",
+            ]
+            for pos, r_idx in enumerate(order_by_lon):
+                routes[r_idx]["name"] = lon_names[pos]
+                routes[r_idx]["summary_title"] = f"Route {r_idx + 1}: {lon_names[pos]}"
+            return
+
+        if key not in KNOWN_CORRIDORS and rev_key not in KNOWN_CORRIDORS:
+            # Sort by mean latitude: South (lowest lat) -> Central (Direct) -> North (highest lat)
+            order_by_lat = sorted(range(3), key=lambda idx: centroids[idx][0])
+            lat_names = [
+                f"{orig_city} – {dest_city} Southern Regional Gateway",
+                f"{orig_city} – {dest_city} Primary Freight Arterial (Direct)",
+                f"{orig_city} – {dest_city} Northern Bypass Corridor",
+            ]
+            for pos, r_idx in enumerate(order_by_lat):
+                routes[r_idx]["name"] = lat_names[pos]
+                routes[r_idx]["summary_title"] = f"Route {r_idx + 1}: {lat_names[pos]}"
+            return
 
     if key in KNOWN_CORRIDORS:
         names = KNOWN_CORRIDORS[key]

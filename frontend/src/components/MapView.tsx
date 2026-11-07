@@ -999,7 +999,13 @@ export const MapView: React.FC<MapViewProps> = ({
           {selectedRoute && onHourChange && (
             <button
               type="button"
-              onClick={() => setShowForecastTimeline(!showForecastTimeline)}
+              onClick={() => {
+                const nextShow = !showForecastTimeline;
+                setShowForecastTimeline(nextShow);
+                if (nextShow && !showHeatmap) {
+                  onToggleHeatmap();
+                }
+              }}
               className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
                 showForecastTimeline
                   ? "bg-blue-600 text-white shadow-md"
