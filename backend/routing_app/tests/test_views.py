@@ -95,3 +95,46 @@ def test_corridor_heatmap_endpoint(client):
     assert len(data["points"]) > 0
     assert "intensity" in data["points"][0]
 
+
+@pytest.mark.django_db
+def test_departure_time_changes_weather_and_recommendations(client):
+    """
+    Verifies that changing departure_time updates checkpoint ETAs, weather exposure,
+    and dynamically shifts the #1 Recommended route while strictly obeying the
+    (severe_miles, high_miles, average_risk, total_duration_seconds) ranking order.
+    """
+    recommended_names = set()
+    high_miles_seen = set()
+
+    for hour_str in ("2026-11-08T06:00:00Z", "2026-11-08T08:00:00Z", "2026-11-08T10:00:00Z", "2026-11-08T14:00:00Z"):
+        resp = client.post(
+            "/api/routes/evaluate/",
+            {
+                "origin": "Spokane, WA",
+                "destination": "Dallas, TX",
+                "departure_time": hour_str,
+                "load_weight": 34000.0,
+                "step_miles": 25,
+            },
+            format="json",
+        )
+        assert resp.status_code == 200
+        routes = resp.json()["routes"]
+        assert len(routes) == 3
+
+        # Verify strict multi-criteria ranking order
+        for idx in range(len(routes) - 1):
+            s_a = routes[idx]["summary"]
+            s_b = routes[idx + 1]["summary"]
+            key_a = (s_a["severe_miles"], s_a["high_miles"], s_a["average_risk"], s_a["total_duration_seconds"])
+            key_b = (s_b["severe_miles"], s_b["high_miles"], s_b["average_risk"], s_b["total_duration_seconds"])
+            assert key_a <= key_b
+
+        recommended_names.add(routes[0]["name"])
+        high_miles_seen.add(routes[0]["summary"]["high_miles"])
+
+    # Across a 8-hour shift, multiple distinct corridors win #1 Recommended and risk mileages change
+    assert len(recommended_names) >= 2
+    assert len(high_miles_seen) >= 2
+
+

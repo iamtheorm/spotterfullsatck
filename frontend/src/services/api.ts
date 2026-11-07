@@ -48,7 +48,7 @@ export async function evaluateRoutes(
   // Guarantee all 3 routes have geographically distinct paths and active corridor risk zones
   if (data.routes && data.routes.length > 0) {
     const distinctData = ensureDistinctRouteGeometries(data);
-    return ensureCorridorRiskZones(distinctData, req.weather_scenario || "live");
+    return ensureCorridorRiskZones(distinctData);
   }
 
   return data;
@@ -312,8 +312,7 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
 }
 
 function ensureCorridorRiskZones(
-  data: EvaluationResponse,
-  scenario: string = "live"
+  data: EvaluationResponse
 ): EvaluationResponse {
   if (!data.routes || data.routes.length === 0) return data;
 
@@ -384,14 +383,7 @@ function ensureCorridorRiskZones(
         const c0 = Math.max(0.28, Math.min(0.72, 0.47 + centerShift));
         const w0 = Math.max(0.06, 0.095 + widthMod * 0.6);
         const nearestIdx = Math.max(1, Math.min(totalCps - 1, Math.round(c0 * (totalCps - 1))));
-        if (scenario === "severe_storm" && (cIdx === nearestIdx || Math.abs(progress - c0) <= 0.035)) {
-          wind = Math.round((46.8 + windMod * 0.4) * 10) / 10;
-          rain = 0.52;
-          level = "Severe";
-          score = 4;
-          color = "#ef4444";
-          activeOverrides.push(`Severe squall fringe: ${wind} mph gust`);
-        } else if (Math.abs(progress - c0) <= w0 || cIdx === nearestIdx) {
+        if (Math.abs(progress - c0) <= w0 || cIdx === nearestIdx) {
           const rel = Math.max(0, 1 - Math.abs(progress - c0) / Math.max(0.01, w0));
           const peak = Math.sin(rel * (Math.PI / 2));
           wind = Math.round(Math.min(43.2, Math.max(35.8, 36.8 + 3.2 * peak + windMod * 0.5)) * 10) / 10;
@@ -414,7 +406,7 @@ function ensureCorridorRiskZones(
         }
       } else if (expRank === 1) {
         const c1 = Math.max(0.28, Math.min(0.72, 0.50 + centerShift));
-        const w1 = Math.max(0.055, (scenario === "severe_storm" ? 0.16 : 0.08) + widthMod * 0.7);
+        const w1 = Math.max(0.055, 0.08 + widthMod * 0.7);
         const nearestIdx = Math.max(1, Math.min(totalCps - 1, Math.round(c1 * (totalCps - 1))));
         if (Math.abs(progress - c1) <= w1 || cIdx === nearestIdx) {
           const rel = Math.max(0, 1 - Math.abs(progress - c1) / Math.max(0.01, w1));
@@ -441,7 +433,7 @@ function ensureCorridorRiskZones(
         }
       } else {
         const c2 = Math.max(0.30, Math.min(0.70, 0.48 + centerShift));
-        const w2 = Math.max(0.15, (scenario === "severe_storm" ? 0.30 : 0.215) + widthMod);
+        const w2 = Math.max(0.15, 0.215 + widthMod);
         const nearestIdx = Math.max(1, Math.min(totalCps - 1, Math.round(c2 * (totalCps - 1))));
         if (Math.abs(progress - c2) <= w2 || Math.abs(cIdx - nearestIdx) <= 1) {
           const rel = Math.max(0, 1 - Math.abs(progress - c2) / Math.max(0.01, w2));

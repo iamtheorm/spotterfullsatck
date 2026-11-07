@@ -317,7 +317,6 @@ export function App() {
         departure_time: formInputs.departure_time || new Date().toISOString(),
         load_weight: formInputs.load_weight || 34000,
         step_miles: formInputs.step_miles || 25,
-        weather_scenario: formInputs.weather_scenario || "live",
       });
     }
   }, []);

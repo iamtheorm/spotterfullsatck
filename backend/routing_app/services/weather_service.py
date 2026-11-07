@@ -298,102 +298,8 @@ def generate_live_corridor_baseline(
             return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.10, "snow_in_per_hr": 0.0}
 
 
-def generate_scenario_weather(
-    cp: Dict[str, Any],
-    cp_index: int,
-    total_cps: int,
-    scenario: str,
-    route_index: int,
-    storm_ctx: Optional[Dict[str, float]] = None,
-) -> Dict[str, float]:
-    """
-    Time- and coordinate-dependent severe weather scenario generator (`severe_storm`).
-    Advects the severe blizzard & crosswind front across the 3 corridors as Departure Time changes.
-    """
-    if storm_ctx is None:
-        storm_ctx = {
-            "storm_phase": 0.0,
-            "exposure_rank": (2 - (route_index % 3)),
-            "center_shift": 0.0,
-            "width_mod": 0.0,
-            "wind_mod": 0.0,
-        }
-
-    exp_rank = int(storm_ctx["exposure_rank"])
-    center_shift = storm_ctx["center_shift"]
-    width_mod = storm_ctx["width_mod"]
-    wind_mod = storm_ctx["wind_mod"]
-
-    progress = cp_index / max(1, total_cps - 1)
-
-    if scenario in ("severe_storm", "winter_blizzard"):
-        if exp_rank == 0:
-            # Safest Bypass Corridor in Severe Storm mode: brief Severe squall fringe + High crosswind band
-            c0 = max(0.28, min(0.72, 0.48 + center_shift))
-            w_sev = max(0.025, 0.035 + width_mod * 0.4)
-            w_high = max(0.11, 0.155 + width_mod * 0.7)
-            nearest_idx = max(1, min(total_cps - 1, int(round(c0 * (total_cps - 1)))))
-            if abs(progress - c0) <= w_sev or (total_cps >= 2 and cp_index == nearest_idx):
-                wind = round(max(45.5, 46.8 + wind_mod * 0.4), 1)
-                return {"wind_mph": wind, "rain_in_per_hr": 0.52, "snow_in_per_hr": 0.0}
-            elif abs(progress - c0) <= w_high or (total_cps >= 3 and abs(cp_index - nearest_idx) == 1):
-                rel = max(0.0, 1.0 - abs(progress - c0) / max(0.01, w_high))
-                peak = math.sin(rel * (math.pi / 2.0))
-                wind = min(43.5, max(35.8, 37.2 + 4.8 * peak + wind_mod * 0.4))
-                rain = round(0.28 + 0.12 * peak, 3)
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": rain, "snow_in_per_hr": 0.0}
-            elif abs(progress - c0) <= w_high + 0.16:
-                wind = min(33.5, max(25.5, 27.5 + 4.0 * math.sin(progress * math.pi)))
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.12, "snow_in_per_hr": 0.0}
-            else:
-                wind = max(14.0, 18.5 + 4.5 * math.sin(progress * math.pi))
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.04, "snow_in_per_hr": 0.0}
-
-        elif exp_rank == 2:
-            # Core Severe Blizzard & Crosswind Front (`exp_rank == 2`)
-            c2 = max(0.30, min(0.70, 0.49 + center_shift))
-            w2 = max(0.24, 0.32 + width_mod)
-            nearest_idx = max(1, min(total_cps - 1, int(round(c2 * (total_cps - 1)))))
-            if abs(progress - c2) <= w2 or (total_cps >= 2 and abs(cp_index - nearest_idx) <= 1):
-                rel = max(0.0, 1.0 - abs(progress - c2) / max(0.01, w2))
-                peak = math.sin(rel * (math.pi / 2.0))
-                wind = max(48.5, 49.5 + 10.5 * peak + wind_mod * 0.6)
-                rain = round(0.55 + 0.42 * peak, 3)
-                snow = round(1.8 + 1.4 * peak, 2) if cp.get("lat", 0) > 34.0 else 0.0
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": rain, "snow_in_per_hr": snow}
-            else:
-                wind = min(43.5, max(35.8, 37.0 + wind_mod * 0.4))
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.28, "snow_in_per_hr": 0.0}
-
-        else:
-            # Secondary Storm Corridor (`exp_rank == 1`)
-            c1 = max(0.28, min(0.72, 0.50 + center_shift))
-            w1 = max(0.13, 0.18 + width_mod * 0.8)
-            nearest_idx = max(1, min(total_cps - 1, int(round(c1 * (total_cps - 1)))))
-            if abs(progress - c1) <= w1 or (total_cps >= 2 and cp_index == nearest_idx):
-                rel = max(0.0, 1.0 - abs(progress - c1) / max(0.01, w1))
-                peak = math.sin(rel * (math.pi / 2.0))
-                wind = max(46.0, 47.0 + 7.2 * peak + wind_mod * 0.5)
-                rain = round(0.52 + 0.25 * peak, 3)
-                snow = round(1.5 + 0.8 * peak, 2) if cp.get("lat", 0) > 36.0 else 0.0
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": rain, "snow_in_per_hr": snow}
-            elif abs(progress - c1) <= w1 + 0.18:
-                wind = min(43.5, max(36.0, 38.5 + wind_mod * 0.4))
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.32, "snow_in_per_hr": 0.0}
-            return {"wind_mph": 26.5, "rain_in_per_hr": 0.12, "snow_in_per_hr": 0.0}
-
-    elif scenario == "high_winds":
-        if exp_rank in (1, 2):
-            wind = 38.0 + 10.0 * math.sin(progress * math.pi)
-            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
-        return {"wind_mph": 18.0, "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
-
-    return {"wind_mph": 12.0, "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
-
-
 def fetch_weather_for_checkpoints(
     checkpoints: List[Dict[str, Any]],
-    weather_scenario: str = "live",
     route_index: int = 0,
 ) -> List[Dict[str, Any]]:
     """
@@ -405,18 +311,6 @@ def fetch_weather_for_checkpoints(
         return []
 
     storm_ctx = _compute_corridor_storm_context(checkpoints, route_index)
-
-    # If an explicit severe scenario is requested, generate time-dependent scenario weather
-    if weather_scenario and weather_scenario != "live":
-        final_output = []
-        for i, cp in enumerate(checkpoints):
-            wx = generate_scenario_weather(
-                cp, i, len(checkpoints), weather_scenario, route_index, storm_ctx=storm_ctx
-            )
-            cp_with_wx = dict(cp)
-            cp_with_wx["weather"] = wx
-            final_output.append(cp_with_wx)
-        return final_output
 
     # Map checkpoints needing external fetch vs cached
     results: List[Optional[Dict[str, float]]] = [None] * len(checkpoints)
