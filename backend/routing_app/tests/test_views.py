@@ -14,7 +14,7 @@ def test_health_check_endpoint(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert "Weather-Aware" in data["service"]
+    assert "SafeCorridor" in data["service"] or "Weather-Aware" in data["service"]
 
 
 @pytest.mark.django_db

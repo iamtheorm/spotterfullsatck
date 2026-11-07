@@ -240,7 +240,7 @@ class HealthCheckView(APIView):
     def get(self, request):
         return Response({
             "status": "healthy",
-            "service": "Weather-Aware Truck Routing API",
+            "service": "SafeCorridor API",
             "version": "1.0.0",
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "ors_configured": bool(getattr(settings, "ORS_API_KEY", "")),
