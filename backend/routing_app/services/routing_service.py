@@ -62,41 +62,96 @@ KNOWN_HUBS = {
     "visakhapatnam": (17.6868, 83.2185, "Visakhapatnam, Andhra Pradesh, India"),
     "guwahati": (26.1445, 91.7362, "Guwahati, Assam, India"),
 
-    # North America
+    # North America (All 50 US States + Major Hubs)
     "chicago": (41.8781, -87.6298, "Chicago, IL, USA"),
     "dallas": (32.7767, -96.7970, "Dallas, TX, USA"),
     "denver": (39.7392, -104.9903, "Denver, CO, USA"),
     "atlanta": (33.7490, -84.3880, "Atlanta, GA, USA"),
     "seattle": (47.6062, -122.3321, "Seattle, WA, USA"),
+    "spokane": (47.6588, -117.4260, "Spokane, WA, USA"),
     "los angeles": (34.0522, -118.2437, "Los Angeles, CA, USA"),
     "new york": (40.7128, -74.0060, "New York, NY, USA"),
     "nyc": (40.7128, -74.0060, "New York, NY, USA"),
+    "buffalo": (42.8864, -78.8784, "Buffalo, NY, USA"),
+    "albany": (42.6526, -73.7562, "Albany, NY, USA"),
     "boston": (42.3601, -71.0589, "Boston, MA, USA"),
     "miami": (25.7617, -80.1918, "Miami, FL, USA"),
+    "jacksonville": (30.3322, -81.6557, "Jacksonville, FL, USA"),
     "houston": (29.7604, -95.3698, "Houston, TX, USA"),
+    "el paso": (31.7619, -106.4850, "El Paso, TX, USA"),
     "phoenix": (33.4484, -112.0740, "Phoenix, AZ, USA"),
+    "tucson": (32.2226, -110.9747, "Tucson, AZ, USA"),
+    "flagstaff": (35.1983, -111.6513, "Flagstaff, AZ, USA"),
     "philadelphia": (39.9526, -75.1652, "Philadelphia, PA, USA"),
     "san antonio": (29.4241, -98.4936, "San Antonio, TX, USA"),
     "san diego": (32.7157, -117.1611, "San Diego, CA, USA"),
+    "sacramento": (38.5816, -121.4944, "Sacramento, CA, USA"),
     "austin": (30.2672, -97.7431, "Austin, TX, USA"),
     "san francisco": (37.7749, -122.4194, "San Francisco, CA, USA"),
     "indianapolis": (39.7684, -86.1581, "Indianapolis, IN, USA"),
     "columbus": (39.9612, -82.9988, "Columbus, OH, USA"),
+    "cincinnati": (39.1031, -84.5120, "Cincinnati, OH, USA"),
     "charlotte": (35.2271, -80.8431, "Charlotte, NC, USA"),
+    "raleigh": (35.7796, -78.6382, "Raleigh, NC, USA"),
     "detroit": (42.3314, -83.0458, "Detroit, MI, USA"),
+    "grand rapids": (42.9634, -85.6681, "Grand Rapids, MI, USA"),
     "memphis": (35.1495, -90.0490, "Memphis, TN, USA"),
     "nashville": (36.1627, -86.7816, "Nashville, TN, USA"),
+    "knoxville": (35.9606, -83.9207, "Knoxville, TN, USA"),
     "st. louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
     "st louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
     "kansas city": (39.0997, -94.5786, "Kansas City, MO, USA"),
     "minneapolis": (44.9778, -93.2650, "Minneapolis, MN, USA"),
+    "duluth": (46.7867, -92.1005, "Duluth, MN, USA"),
     "cleveland": (41.4993, -81.6944, "Cleveland, OH, USA"),
     "pittsburgh": (40.4406, -79.9959, "Pittsburgh, PA, USA"),
     "tampa": (27.9506, -82.4572, "Tampa, FL, USA"),
     "orlando": (28.5383, -81.3792, "Orlando, FL, USA"),
     "las vegas": (36.1699, -115.1398, "Las Vegas, NV, USA"),
+    "reno": (39.5296, -119.8138, "Reno, NV, USA"),
     "salt lake city": (40.7608, -111.8910, "Salt Lake City, UT, USA"),
     "portland": (45.5152, -122.6784, "Portland, OR, USA"),
+    "boise": (43.6150, -116.2023, "Boise, ID, USA"),
+    "omaha": (41.2565, -95.9345, "Omaha, NE, USA"),
+    "lincoln": (40.8136, -96.7026, "Lincoln, NE, USA"),
+    "des moines": (41.5868, -93.6250, "Des Moines, IA, USA"),
+    "wichita": (37.6872, -97.3301, "Wichita, KS, USA"),
+    "topeka": (39.0473, -95.6752, "Topeka, KS, USA"),
+    "oklahoma city": (35.4676, -97.5164, "Oklahoma City, OK, USA"),
+    "tulsa": (36.1540, -95.9928, "Tulsa, OK, USA"),
+    "little rock": (34.7465, -92.2896, "Little Rock, AR, USA"),
+    "new orleans": (29.9511, -90.0715, "New Orleans, LA, USA"),
+    "baton rouge": (30.4515, -91.1871, "Baton Rouge, LA, USA"),
+    "shreveport": (32.5252, -93.7502, "Shreveport, LA, USA"),
+    "jackson": (32.2988, -90.1848, "Jackson, MS, USA"),
+    "birmingham": (33.5186, -86.8104, "Birmingham, AL, USA"),
+    "mobile": (30.6954, -88.0399, "Mobile, AL, USA"),
+    "louisville": (38.2527, -85.7585, "Louisville, KY, USA"),
+    "lexington": (38.0406, -84.5037, "Lexington, KY, USA"),
+    "richmond": (37.5407, -77.4360, "Richmond, VA, USA"),
+    "norfolk": (36.8508, -76.2859, "Norfolk, VA, USA"),
+    "charleston": (32.7765, -79.9311, "Charleston, SC, USA"),
+    "baltimore": (39.2904, -76.6122, "Baltimore, MD, USA"),
+    "wilmington": (39.7447, -75.5484, "Wilmington, DE, USA"),
+    "newark": (40.7357, -74.1724, "Newark, NJ, USA"),
+    "hartford": (41.7658, -72.6734, "Hartford, CT, USA"),
+    "providence": (41.8240, -71.4128, "Providence, RI, USA"),
+    "manchester": (42.9956, -71.4548, "Manchester, NH, USA"),
+    "burlington": (44.4759, -73.2121, "Burlington, VT, USA"),
+    "milwaukee": (43.0389, -87.9065, "Milwaukee, WI, USA"),
+    "madison": (43.0731, -89.4012, "Madison, WI, USA"),
+    "fargo": (46.8772, -96.7898, "Fargo, ND, USA"),
+    "bismarck": (46.8083, -100.7837, "Bismarck, ND, USA"),
+    "sioux falls": (43.5446, -96.7311, "Sioux Falls, SD, USA"),
+    "rapid city": (44.0805, -103.2310, "Rapid City, SD, USA"),
+    "billings": (45.7833, -108.5007, "Billings, MT, USA"),
+    "missoula": (46.8721, -113.9940, "Missoula, MT, USA"),
+    "cheyenne": (41.1400, -104.8202, "Cheyenne, WY, USA"),
+    "casper": (42.8501, -106.3252, "Casper, WY, USA"),
+    "albuquerque": (35.0844, -106.6504, "Albuquerque, NM, USA"),
+    "anchorage": (61.2181, -149.9003, "Anchorage, AK, USA"),
+    "honolulu": (21.3069, -157.8583, "Honolulu, HI, USA"),
+    "washington": (38.9072, -77.0369, "Washington, DC, USA"),
     "toronto": (43.6532, -79.3832, "Toronto, ON, Canada"),
     "montreal": (45.5017, -73.5673, "Montreal, QC, Canada"),
     "vancouver": (49.2827, -123.1207, "Vancouver, BC, Canada"),
@@ -120,10 +175,25 @@ KNOWN_HUBS = {
 }
 
 
+US_STATES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa",
+    "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey",
+    "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+    "DC": "District of Columbia",
+}
+
+
 def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
     """
     Geocodes an address or parses coordinates "lat,lon" anywhere worldwide.
-    Uses Open-Meteo Global Geocoding API + OSM Nominatim fallback.
+    Uses Open-Meteo Global Geocoding API + OSM Nominatim fallback + KNOWN_HUBS.
     Returns (lat, lon, display_name).
     """
     if not query or not query.strip():
@@ -142,31 +212,43 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
         except ValueError:
             pass
 
+    # Extract optional state filter (e.g., "Boise, ID" or "Portland, Maine")
+    state_filter = ""
+    if len(parts) >= 2:
+        raw_st = parts[1].strip().upper()
+        state_filter = US_STATES.get(raw_st, parts[1].strip()).lower()
+
     # 1. Primary: Open-Meteo Fast Global Geocoding API (Worldwide coverage, zero rate-limit issues)
-    # Try exact string and first comma token if present
     query_variants = [cleaned]
     if "," in cleaned:
         first_token = cleaned.split(",")[0].strip()
         if first_token and first_token not in query_variants:
-            query_variants.append(first_token)
+            query_variants.insert(0, first_token)
 
     for q in query_variants:
         try:
             resp = requests.get(
                 "https://geocoding-api.open-meteo.com/v1/search",
-                params={"name": q, "count": 3, "language": "en", "format": "json"},
+                params={"name": q, "count": 20, "language": "en", "format": "json"},
                 timeout=6,
             )
             if resp.status_code == 200:
                 data = resp.json()
                 results = data.get("results", [])
                 if results and len(results) > 0:
-                    item = results[0]
-                    lat = float(item["latitude"])
-                    lon = float(item["longitude"])
-                    name = item.get("name", cleaned)
-                    admin1 = item.get("admin1", "")
-                    country = item.get("country", "")
+                    chosen = results[0]
+                    if state_filter:
+                        for candidate in results:
+                            adm = (candidate.get("admin1") or "").lower()
+                            cntry = (candidate.get("country") or "").lower()
+                            if state_filter in adm or state_filter in cntry:
+                                chosen = candidate
+                                break
+                    lat = float(chosen["latitude"])
+                    lon = float(chosen["longitude"])
+                    name = chosen.get("name", cleaned)
+                    admin1 = chosen.get("admin1", "")
+                    country = chosen.get("country", "")
                     display = f"{name}, {admin1}, {country}".replace(", ,", ",").strip(", ")
                     return lat, lon, display
         except Exception as e:
@@ -195,6 +277,10 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
 
     # 3. Fallback dictionary of common worldwide transport and freight hubs
     lowered = cleaned.lower()
+    city_only = parts[0].strip().lower()
+    if city_only in KNOWN_HUBS:
+        v = KNOWN_HUBS[city_only]
+        return v[0], v[1], v[2]
     for k, v in KNOWN_HUBS.items():
         if k in lowered:
             return v[0], v[1], v[2]
@@ -205,19 +291,19 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
 def search_locations(query: str, country_code: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Asynchronous autocomplete search for cities worldwide, filtered optionally by country code.
-    Returns list of dicts with:
-      - city
-      - state
-      - country
-      - country_code
-      - label ("City, State")
-      - display_name ("City, State, Country")
-      - lat, lon
+    Supports all 50 US states and worldwide cities.
     """
     if not query or len(query.strip()) < 1:
         return []
 
     cleaned = query.strip().lower()
+    parts = [p.strip() for p in query.strip().split(",") if p.strip()]
+    city_query = parts[0] if parts else query.strip()
+    state_filter = ""
+    if len(parts) >= 2:
+        raw_st = parts[1].upper()
+        state_filter = US_STATES.get(raw_st, parts[1]).lower()
+
     cc = country_code.strip().upper() if country_code and country_code.lower() not in ("all", "") else None
 
     results: List[Dict[str, Any]] = []
@@ -231,10 +317,9 @@ def search_locations(query: str, country_code: Optional[str] = None) -> List[Dic
         state = tokens[1] if len(tokens) >= 3 else ""
         country = tokens[-1] if len(tokens) >= 2 else ""
 
-        # Determine country code
         ccode = ""
         disp_upper = display.upper()
-        if "USA" in disp_upper or "UNITED STATES" in disp_upper or any(st in disp_upper for st in [" IL", " TX", " CO", " GA", " WA", " CA", " NY", " MA", " FL", " MO"]):
+        if "USA" in disp_upper or "UNITED STATES" in disp_upper:
             ccode = "US"
         elif "INDIA" in disp_upper:
             ccode = "IN"
@@ -252,7 +337,15 @@ def search_locations(query: str, country_code: Optional[str] = None) -> List[Dic
         if cc and ccode and ccode != cc:
             continue
 
-        if cleaned in key or cleaned in city.lower() or (state and cleaned in state.lower()) or (country and cleaned in country.lower()):
+        full_state = US_STATES.get(state.upper(), state).lower()
+        if (
+            cleaned in key
+            or city_query.lower() in city.lower()
+            or (state and cleaned in state.lower())
+            or (full_state and cleaned in full_state)
+        ):
+            if state_filter and state_filter not in state.lower() and state_filter not in full_state:
+                continue
             label = f"{city}, {state}" if state else city
             item_key = (city.lower(), state.lower(), ccode)
             if item_key not in seen:
@@ -268,50 +361,58 @@ def search_locations(query: str, country_code: Optional[str] = None) -> List[Dic
                     "lon": lon,
                 })
 
-    # 2. Query Open-Meteo Geocoding API if more candidates needed
-    if len(results) < 8:
-        try:
-            params = {"name": query.strip(), "count": 10, "language": "en", "format": "json"}
-            resp = requests.get(
-                "https://geocoding-api.open-meteo.com/v1/search",
-                params=params,
-                timeout=4,
-            )
-            if resp.status_code == 200:
-                data = resp.json().get("results", [])
-                for item in data:
-                    item_cc = item.get("country_code", "").upper()
-                    if cc and item_cc != cc:
-                        continue
-                    city = item.get("name", "")
-                    state = item.get("admin1", "")
-                    country = item.get("country", "")
-                    lat = float(item["latitude"])
-                    lon = float(item["longitude"])
-                    label = f"{city}, {state}" if state else city
-                    display_name = f"{city}, {state}, {country}".replace(", ,", ",").strip(", ")
+    # 2. Query Open-Meteo Geocoding API (covers all US cities across all 50 states)
+    try:
+        params: Dict[str, Any] = {
+            "name": city_query,
+            "count": 25,
+            "language": "en",
+            "format": "json",
+        }
+        if cc:
+            params["countryCode"] = cc
+        resp = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params=params,
+            timeout=4,
+        )
+        if resp.status_code == 200:
+            data = resp.json().get("results", [])
+            for item in data:
+                item_cc = item.get("country_code", "").upper()
+                if cc and item_cc != cc:
+                    continue
+                city = item.get("name", "")
+                state = item.get("admin1", "")
+                country = item.get("country", "")
+                if state_filter and state_filter not in state.lower():
+                    continue
+                lat = float(item["latitude"])
+                lon = float(item["longitude"])
+                label = f"{city}, {state}" if state else city
+                display_name = f"{city}, {state}, {country}".replace(", ,", ",").strip(", ")
 
-                    item_key = (city.lower(), state.lower(), item_cc)
-                    if item_key not in seen:
-                        seen.add(item_key)
-                        results.append({
-                            "city": city,
-                            "state": state,
-                            "country": country,
-                            "country_code": item_cc,
-                            "label": label,
-                            "display_name": display_name,
-                            "lat": lat,
-                            "lon": lon,
-                        })
-        except Exception as e:
-            logger.debug(f"Open-Meteo search error: {e}")
+                item_key = (city.lower(), state.lower(), item_cc)
+                if item_key not in seen:
+                    seen.add(item_key)
+                    results.append({
+                        "city": city,
+                        "state": state,
+                        "country": country,
+                        "country_code": item_cc,
+                        "label": label,
+                        "display_name": display_name,
+                        "lat": lat,
+                        "lon": lon,
+                    })
+    except Exception as e:
+        logger.debug(f"Open-Meteo search error: {e}")
 
     # 3. Query Nominatim if still empty
     if len(results) == 0:
         try:
             headers = {"User-Agent": "WeatherRoutingApp/1.0"}
-            nom_params: Dict[str, Any] = {"q": query.strip(), "format": "json", "limit": 6}
+            nom_params: Dict[str, Any] = {"q": query.strip(), "format": "json", "limit": 8}
             if cc:
                 nom_params["countrycodes"] = cc.lower()
             nom_resp = requests.get(
@@ -340,7 +441,7 @@ def search_locations(query: str, country_code: Optional[str] = None) -> List[Dic
         except Exception as e:
             logger.debug(f"Nominatim search error: {e}")
 
-    return results[:8]
+    return results[:15]
 
 
 def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

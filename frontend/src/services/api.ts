@@ -262,19 +262,114 @@ export interface LocationSuggestion {
   lon: number;
 }
 
+const US_STATE_MAP: Record<string, string> = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California",
+  CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa",
+  KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri",
+  MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio",
+  OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont",
+  VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
 export async function searchLocations(
   query: string,
   country?: string
 ): Promise<LocationSuggestion[]> {
   if (!query || query.trim().length === 0) return [];
-  const params = new URLSearchParams({ q: query.trim() });
-  if (country && country !== "ALL") {
-    params.set("country", country);
+  const raw = query.trim();
+  const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+  const cityQuery = parts[0] || raw;
+  const stateFilterRaw = parts.length > 1 ? parts[1].toUpperCase() : "";
+  const stateFullName = (US_STATE_MAP[stateFilterRaw] || parts[1] || "").toLowerCase();
+
+  const cc = country && country !== "ALL" ? country.toUpperCase() : "";
+
+  // 1. Directly query Open-Meteo Global Geocoding API (covers all US cities in all 50 states in <80ms)
+  const openMeteoPromise = (async (): Promise<LocationSuggestion[]> => {
+    try {
+      const omParams = new URLSearchParams({
+        name: cityQuery,
+        count: "30",
+        language: "en",
+        format: "json",
+      });
+      if (cc) {
+        omParams.set("countryCode", cc);
+      }
+      const omResp = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?${omParams.toString()}`
+      );
+      if (!omResp.ok) return [];
+      const omData = await omResp.json();
+      const items: any[] = omData.results || [];
+      const mapped: LocationSuggestion[] = [];
+
+      for (const item of items) {
+        const itemCc = (item.country_code || "").toUpperCase();
+        if (cc && itemCc && itemCc !== cc) continue;
+        const city = item.name || "";
+        const state = item.admin1 || "";
+        const countryName = item.country || "";
+        if (
+          stateFullName &&
+          !state.toLowerCase().includes(stateFullName) &&
+          stateFilterRaw.toLowerCase() !== itemCc.toLowerCase()
+        ) {
+          continue;
+        }
+        const label = state ? `${city}, ${state}` : city;
+        const display_name = [city, state, countryName].filter(Boolean).join(", ");
+        mapped.push({
+          city,
+          state,
+          country: countryName,
+          country_code: itemCc,
+          label,
+          display_name,
+          lat: Number(item.latitude),
+          lon: Number(item.longitude),
+        });
+      }
+      return mapped;
+    } catch {
+      return [];
+    }
+  })();
+
+  // 2. Also query backend /geocode/ endpoint in parallel
+  const backendPromise = (async (): Promise<LocationSuggestion[]> => {
+    try {
+      const params = new URLSearchParams({ q: raw });
+      if (cc) {
+        params.set("country", cc);
+      }
+      const resp = await fetch(`${API_BASE}/geocode/?${params.toString()}`);
+      if (!resp.ok) return [];
+      const data = await resp.json().catch(() => ({}));
+      return data.results || [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const [omResults, beResults] = await Promise.all([openMeteoPromise, backendPromise]);
+  const seen = new Set<string>();
+  const combined: LocationSuggestion[] = [];
+
+  for (const item of [...omResults, ...beResults]) {
+    const key = `${item.city.toLowerCase()}|${(item.state || "").toLowerCase()}|${(item.country_code || "").toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(item);
+    }
   }
-  const resp = await fetch(`${API_BASE}/geocode/?${params.toString()}`);
-  if (!resp.ok) return [];
-  const data = await resp.json().catch(() => ({}));
-  return data.results || [];
+
+  return combined.slice(0, 15);
 }
 
 export async function healthCheck(): Promise<boolean> {

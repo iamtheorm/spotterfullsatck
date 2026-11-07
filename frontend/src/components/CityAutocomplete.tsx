@@ -11,7 +11,7 @@ interface CityAutocompleteProps {
   required?: boolean;
 }
 
-// Curated top freight and logistics hubs per region for instant 1-click driver selection
+// Curated top freight and logistics hubs per region (including cities across all 50 US states)
 const REGIONAL_HUBS: Record<string, LocationSuggestion[]> = {
   US: [
     { city: "Chicago", state: "IL", country: "United States", country_code: "US", label: "Chicago, IL, USA", display_name: "Chicago, Illinois, United States", lat: 41.8781, lon: -87.6298 },
@@ -19,17 +19,90 @@ const REGIONAL_HUBS: Record<string, LocationSuggestion[]> = {
     { city: "Atlanta", state: "GA", country: "United States", country_code: "US", label: "Atlanta, GA, USA", display_name: "Atlanta, Georgia, United States", lat: 33.7490, lon: -84.3880 },
     { city: "Denver", state: "CO", country: "United States", country_code: "US", label: "Denver, CO, USA", display_name: "Denver, Colorado, United States", lat: 39.7392, lon: -104.9903 },
     { city: "Seattle", state: "WA", country: "United States", country_code: "US", label: "Seattle, WA, USA", display_name: "Seattle, Washington, United States", lat: 47.6062, lon: -122.3321 },
+    { city: "Spokane", state: "WA", country: "United States", country_code: "US", label: "Spokane, WA, USA", display_name: "Spokane, Washington, United States", lat: 47.6588, lon: -117.4260 },
     { city: "Los Angeles", state: "CA", country: "United States", country_code: "US", label: "Los Angeles, CA, USA", display_name: "Los Angeles, California, United States", lat: 34.0522, lon: -118.2437 },
+    { city: "San Francisco", state: "CA", country: "United States", country_code: "US", label: "San Francisco, CA, USA", display_name: "San Francisco, California, United States", lat: 37.7749, lon: -122.4194 },
+    { city: "San Diego", state: "CA", country: "United States", country_code: "US", label: "San Diego, CA, USA", display_name: "San Diego, California, United States", lat: 32.7157, lon: -117.1611 },
+    { city: "Sacramento", state: "CA", country: "United States", country_code: "US", label: "Sacramento, CA, USA", display_name: "Sacramento, California, United States", lat: 38.5816, lon: -121.4944 },
     { city: "Houston", state: "TX", country: "United States", country_code: "US", label: "Houston, TX, USA", display_name: "Houston, Texas, United States", lat: 29.7604, lon: -95.3698 },
+    { city: "Austin", state: "TX", country: "United States", country_code: "US", label: "Austin, TX, USA", display_name: "Austin, Texas, United States", lat: 30.2672, lon: -97.7431 },
+    { city: "San Antonio", state: "TX", country: "United States", country_code: "US", label: "San Antonio, TX, USA", display_name: "San Antonio, Texas, United States", lat: 29.4241, lon: -98.4936 },
+    { city: "El Paso", state: "TX", country: "United States", country_code: "US", label: "El Paso, TX, USA", display_name: "El Paso, Texas, United States", lat: 31.7619, lon: -106.4850 },
+    { city: "New York", state: "NY", country: "United States", country_code: "US", label: "New York, NY, USA", display_name: "New York, New York, United States", lat: 40.7128, lon: -74.0060 },
+    { city: "Buffalo", state: "NY", country: "United States", country_code: "US", label: "Buffalo, NY, USA", display_name: "Buffalo, New York, United States", lat: 42.8864, lon: -78.8784 },
+    { city: "Albany", state: "NY", country: "United States", country_code: "US", label: "Albany, NY, USA", display_name: "Albany, New York, United States", lat: 42.6526, lon: -73.7562 },
+    { city: "Miami", state: "FL", country: "United States", country_code: "US", label: "Miami, FL, USA", display_name: "Miami, Florida, United States", lat: 25.7617, lon: -80.1918 },
+    { city: "Orlando", state: "FL", country: "United States", country_code: "US", label: "Orlando, FL, USA", display_name: "Orlando, Florida, United States", lat: 28.5383, lon: -81.3792 },
+    { city: "Tampa", state: "FL", country: "United States", country_code: "US", label: "Tampa, FL, USA", display_name: "Tampa, Florida, United States", lat: 27.9506, lon: -82.4572 },
+    { city: "Jacksonville", state: "FL", country: "United States", country_code: "US", label: "Jacksonville, FL, USA", display_name: "Jacksonville, Florida, United States", lat: 30.3322, lon: -81.6557 },
     { city: "Kansas City", state: "MO", country: "United States", country_code: "US", label: "Kansas City, MO, USA", display_name: "Kansas City, Missouri, United States", lat: 39.0997, lon: -94.5786 },
     { city: "St. Louis", state: "MO", country: "United States", country_code: "US", label: "St. Louis, MO, USA", display_name: "St. Louis, Missouri, United States", lat: 38.6270, lon: -90.1994 },
     { city: "Minneapolis", state: "MN", country: "United States", country_code: "US", label: "Minneapolis, MN, USA", display_name: "Minneapolis, Minnesota, United States", lat: 44.9778, lon: -93.2650 },
+    { city: "Duluth", state: "MN", country: "United States", country_code: "US", label: "Duluth, MN, USA", display_name: "Duluth, Minnesota, United States", lat: 46.7867, lon: -92.1005 },
     { city: "Indianapolis", state: "IN", country: "United States", country_code: "US", label: "Indianapolis, IN, USA", display_name: "Indianapolis, Indiana, United States", lat: 39.7684, lon: -86.1581 },
     { city: "Memphis", state: "TN", country: "United States", country_code: "US", label: "Memphis, TN, USA", display_name: "Memphis, Tennessee, United States", lat: 35.1495, lon: -90.0490 },
+    { city: "Nashville", state: "TN", country: "United States", country_code: "US", label: "Nashville, TN, USA", display_name: "Nashville, Tennessee, United States", lat: 36.1627, lon: -86.7816 },
+    { city: "Knoxville", state: "TN", country: "United States", country_code: "US", label: "Knoxville, TN, USA", display_name: "Knoxville, Tennessee, United States", lat: 35.9606, lon: -83.9207 },
     { city: "Phoenix", state: "AZ", country: "United States", country_code: "US", label: "Phoenix, AZ, USA", display_name: "Phoenix, Arizona, United States", lat: 33.4484, lon: -112.0740 },
+    { city: "Tucson", state: "AZ", country: "United States", country_code: "US", label: "Tucson, AZ, USA", display_name: "Tucson, Arizona, United States", lat: 32.2226, lon: -110.9747 },
+    { city: "Flagstaff", state: "AZ", country: "United States", country_code: "US", label: "Flagstaff, AZ, USA", display_name: "Flagstaff, Arizona, United States", lat: 35.1983, lon: -111.6513 },
     { city: "Detroit", state: "MI", country: "United States", country_code: "US", label: "Detroit, MI, USA", display_name: "Detroit, Michigan, United States", lat: 42.3314, lon: -83.0458 },
-    { city: "Miami", state: "FL", country: "United States", country_code: "US", label: "Miami, FL, USA", display_name: "Miami, Florida, United States", lat: 25.7617, lon: -80.1918 },
-    { city: "New York", state: "NY", country: "United States", country_code: "US", label: "New York, NY, USA", display_name: "New York, New York, United States", lat: 40.7128, lon: -74.0060 },
+    { city: "Grand Rapids", state: "MI", country: "United States", country_code: "US", label: "Grand Rapids, MI, USA", display_name: "Grand Rapids, Michigan, United States", lat: 42.9634, lon: -85.6681 },
+    { city: "Birmingham", state: "AL", country: "United States", country_code: "US", label: "Birmingham, AL, USA", display_name: "Birmingham, Alabama, United States", lat: 33.5186, lon: -86.8104 },
+    { city: "Mobile", state: "AL", country: "United States", country_code: "US", label: "Mobile, AL, USA", display_name: "Mobile, Alabama, United States", lat: 30.6954, lon: -88.0399 },
+    { city: "Anchorage", state: "AK", country: "United States", country_code: "US", label: "Anchorage, AK, USA", display_name: "Anchorage, Alaska, United States", lat: 61.2181, lon: -149.9003 },
+    { city: "Little Rock", state: "AR", country: "United States", country_code: "US", label: "Little Rock, AR, USA", display_name: "Little Rock, Arkansas, United States", lat: 34.7465, lon: -92.2896 },
+    { city: "Hartford", state: "CT", country: "United States", country_code: "US", label: "Hartford, CT, USA", display_name: "Hartford, Connecticut, United States", lat: 41.7658, lon: -72.6734 },
+    { city: "Wilmington", state: "DE", country: "United States", country_code: "US", label: "Wilmington, DE, USA", display_name: "Wilmington, Delaware, United States", lat: 39.7447, lon: -75.5484 },
+    { city: "Honolulu", state: "HI", country: "United States", country_code: "US", label: "Honolulu, HI, USA", display_name: "Honolulu, Hawaii, United States", lat: 21.3069, lon: -157.8583 },
+    { city: "Boise", state: "ID", country: "United States", country_code: "US", label: "Boise, ID, USA", display_name: "Boise, Idaho, United States", lat: 43.6150, lon: -116.2023 },
+    { city: "Des Moines", state: "IA", country: "United States", country_code: "US", label: "Des Moines, IA, USA", display_name: "Des Moines, Iowa, United States", lat: 41.5868, lon: -93.6250 },
+    { city: "Wichita", state: "KS", country: "United States", country_code: "US", label: "Wichita, KS, USA", display_name: "Wichita, Kansas, United States", lat: 37.6872, lon: -97.3301 },
+    { city: "Topeka", state: "KS", country: "United States", country_code: "US", label: "Topeka, KS, USA", display_name: "Topeka, Kansas, United States", lat: 39.0473, lon: -95.6752 },
+    { city: "Louisville", state: "KY", country: "United States", country_code: "US", label: "Louisville, KY, USA", display_name: "Louisville, Kentucky, United States", lat: 38.2527, lon: -85.7585 },
+    { city: "Lexington", state: "KY", country: "United States", country_code: "US", label: "Lexington, KY, USA", display_name: "Lexington, Kentucky, United States", lat: 38.0406, lon: -84.5037 },
+    { city: "New Orleans", state: "LA", country: "United States", country_code: "US", label: "New Orleans, LA, USA", display_name: "New Orleans, Louisiana, United States", lat: 29.9511, lon: -90.0715 },
+    { city: "Baton Rouge", state: "LA", country: "United States", country_code: "US", label: "Baton Rouge, LA, USA", display_name: "Baton Rouge, Louisiana, United States", lat: 30.4515, lon: -91.1871 },
+    { city: "Shreveport", state: "LA", country: "United States", country_code: "US", label: "Shreveport, LA, USA", display_name: "Shreveport, Louisiana, United States", lat: 32.5252, lon: -93.7502 },
+    { city: "Portland", state: "ME", country: "United States", country_code: "US", label: "Portland, ME, USA", display_name: "Portland, Maine, United States", lat: 43.6591, lon: -70.2568 },
+    { city: "Baltimore", state: "MD", country: "United States", country_code: "US", label: "Baltimore, MD, USA", display_name: "Baltimore, Maryland, United States", lat: 39.2904, lon: -76.6122 },
+    { city: "Boston", state: "MA", country: "United States", country_code: "US", label: "Boston, MA, USA", display_name: "Boston, Massachusetts, United States", lat: 42.3601, lon: -71.0589 },
+    { city: "Jackson", state: "MS", country: "United States", country_code: "US", label: "Jackson, MS, USA", display_name: "Jackson, Mississippi, United States", lat: 32.2988, lon: -90.1848 },
+    { city: "Billings", state: "MT", country: "United States", country_code: "US", label: "Billings, MT, USA", display_name: "Billings, Montana, United States", lat: 45.7833, lon: -108.5007 },
+    { city: "Missoula", state: "MT", country: "United States", country_code: "US", label: "Missoula, MT, USA", display_name: "Missoula, Montana, United States", lat: 46.8721, lon: -113.9940 },
+    { city: "Omaha", state: "NE", country: "United States", country_code: "US", label: "Omaha, NE, USA", display_name: "Omaha, Nebraska, United States", lat: 41.2565, lon: -95.9345 },
+    { city: "Lincoln", state: "NE", country: "United States", country_code: "US", label: "Lincoln, NE, USA", display_name: "Lincoln, Nebraska, United States", lat: 40.8136, lon: -96.7026 },
+    { city: "Las Vegas", state: "NV", country: "United States", country_code: "US", label: "Las Vegas, NV, USA", display_name: "Las Vegas, Nevada, United States", lat: 36.1699, lon: -115.1398 },
+    { city: "Reno", state: "NV", country: "United States", country_code: "US", label: "Reno, NV, USA", display_name: "Reno, Nevada, United States", lat: 39.5296, lon: -119.8138 },
+    { city: "Manchester", state: "NH", country: "United States", country_code: "US", label: "Manchester, NH, USA", display_name: "Manchester, New Hampshire, United States", lat: 42.9956, lon: -71.4548 },
+    { city: "Newark", state: "NJ", country: "United States", country_code: "US", label: "Newark, NJ, USA", display_name: "Newark, New Jersey, United States", lat: 40.7357, lon: -74.1724 },
+    { city: "Albuquerque", state: "NM", country: "United States", country_code: "US", label: "Albuquerque, NM, USA", display_name: "Albuquerque, New Mexico, United States", lat: 35.0844, lon: -106.6504 },
+    { city: "Charlotte", state: "NC", country: "United States", country_code: "US", label: "Charlotte, NC, USA", display_name: "Charlotte, North Carolina, United States", lat: 35.2271, lon: -80.8431 },
+    { city: "Raleigh", state: "NC", country: "United States", country_code: "US", label: "Raleigh, NC, USA", display_name: "Raleigh, North Carolina, United States", lat: 35.7796, lon: -78.6382 },
+    { city: "Fargo", state: "ND", country: "United States", country_code: "US", label: "Fargo, ND, USA", display_name: "Fargo, North Dakota, United States", lat: 46.8772, lon: -96.7898 },
+    { city: "Bismarck", state: "ND", country: "United States", country_code: "US", label: "Bismarck, ND, USA", display_name: "Bismarck, North Dakota, United States", lat: 46.8083, lon: -100.7837 },
+    { city: "Columbus", state: "OH", country: "United States", country_code: "US", label: "Columbus, OH, USA", display_name: "Columbus, Ohio, United States", lat: 39.9612, lon: -82.9988 },
+    { city: "Cleveland", state: "OH", country: "United States", country_code: "US", label: "Cleveland, OH, USA", display_name: "Cleveland, Ohio, United States", lat: 41.4993, lon: -81.6944 },
+    { city: "Cincinnati", state: "OH", country: "United States", country_code: "US", label: "Cincinnati, OH, USA", display_name: "Cincinnati, Ohio, United States", lat: 39.1031, lon: -84.5120 },
+    { city: "Oklahoma City", state: "OK", country: "United States", country_code: "US", label: "Oklahoma City, OK, USA", display_name: "Oklahoma City, Oklahoma, United States", lat: 35.4676, lon: -97.5164 },
+    { city: "Tulsa", state: "OK", country: "United States", country_code: "US", label: "Tulsa, OK, USA", display_name: "Tulsa, Oklahoma, United States", lat: 36.1540, lon: -95.9928 },
+    { city: "Portland", state: "OR", country: "United States", country_code: "US", label: "Portland, OR, USA", display_name: "Portland, Oregon, United States", lat: 45.5152, lon: -122.6784 },
+    { city: "Philadelphia", state: "PA", country: "United States", country_code: "US", label: "Philadelphia, PA, USA", display_name: "Philadelphia, Pennsylvania, United States", lat: 39.9526, lon: -75.1652 },
+    { city: "Pittsburgh", state: "PA", country: "United States", country_code: "US", label: "Pittsburgh, PA, USA", display_name: "Pittsburgh, Pennsylvania, United States", lat: 40.4406, lon: -79.9959 },
+    { city: "Providence", state: "RI", country: "United States", country_code: "US", label: "Providence, RI, USA", display_name: "Providence, Rhode Island, United States", lat: 41.8240, lon: -71.4128 },
+    { city: "Charleston", state: "SC", country: "United States", country_code: "US", label: "Charleston, SC, USA", display_name: "Charleston, South Carolina, United States", lat: 32.7765, lon: -79.9311 },
+    { city: "Sioux Falls", state: "SD", country: "United States", country_code: "US", label: "Sioux Falls, SD, USA", display_name: "Sioux Falls, South Dakota, United States", lat: 43.5446, lon: -96.7311 },
+    { city: "Rapid City", state: "SD", country: "United States", country_code: "US", label: "Rapid City, SD, USA", display_name: "Rapid City, South Dakota, United States", lat: 44.0805, lon: -103.2310 },
+    { city: "Salt Lake City", state: "UT", country: "United States", country_code: "US", label: "Salt Lake City, UT, USA", display_name: "Salt Lake City, Utah, United States", lat: 40.7608, lon: -111.8910 },
+    { city: "Burlington", state: "VT", country: "United States", country_code: "US", label: "Burlington, VT, USA", display_name: "Burlington, Vermont, United States", lat: 44.4759, lon: -73.2121 },
+    { city: "Richmond", state: "VA", country: "United States", country_code: "US", label: "Richmond, VA, USA", display_name: "Richmond, Virginia, United States", lat: 37.5407, lon: -77.4360 },
+    { city: "Norfolk", state: "VA", country: "United States", country_code: "US", label: "Norfolk, VA, USA", display_name: "Norfolk, Virginia, United States", lat: 36.8508, lon: -76.2859 },
+    { city: "Charleston", state: "WV", country: "United States", country_code: "US", label: "Charleston, WV, USA", display_name: "Charleston, West Virginia, United States", lat: 38.3498, lon: -81.6326 },
+    { city: "Milwaukee", state: "WI", country: "United States", country_code: "US", label: "Milwaukee, WI, USA", display_name: "Milwaukee, Wisconsin, United States", lat: 43.0389, lon: -87.9065 },
+    { city: "Madison", state: "WI", country: "United States", country_code: "US", label: "Madison, WI, USA", display_name: "Madison, Wisconsin, United States", lat: 43.0731, lon: -89.4012 },
+    { city: "Cheyenne", state: "WY", country: "United States", country_code: "US", label: "Cheyenne, WY, USA", display_name: "Cheyenne, Wyoming, United States", lat: 41.1400, lon: -104.8202 },
+    { city: "Casper", state: "WY", country: "United States", country_code: "US", label: "Casper, WY, USA", display_name: "Casper, Wyoming, United States", lat: 42.8501, lon: -106.3252 },
+    { city: "Washington", state: "DC", country: "United States", country_code: "US", label: "Washington, DC, USA", display_name: "Washington, District of Columbia, United States", lat: 38.9072, lon: -77.0369 },
   ],
   IN: [
     { city: "Delhi", state: "Delhi", country: "India", country_code: "IN", label: "Delhi, India", display_name: "Delhi, India", lat: 28.6139, lon: 77.2090 },
@@ -80,39 +153,43 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isTyping, setIsTyping] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceTimerRef = useRef<any>(null);
-  const lastSelectedTextRef = useRef<string>(value || "");
+  const internalValueRef = useRef<string>(value || "");
 
   // Available hubs for current region
   const regionalHubs = useMemo(() => {
-    const list = REGIONAL_HUBS[country] || REGIONAL_HUBS["US"];
-    return list;
+    if (country === "ALL") {
+      return Object.values(REGIONAL_HUBS).flat();
+    }
+    return REGIONAL_HUBS[country] || REGIONAL_HUBS["US"];
   }, [country]);
 
-  // Sync internal input value if prop changes from outside (e.g. reset or swap)
+  // Sync internal input value ONLY if prop changes from outside (e.g. reset, swap, or evaluation resolve)
   useEffect(() => {
-    setInputValue(value);
-    lastSelectedTextRef.current = value;
+    if (value !== internalValueRef.current) {
+      internalValueRef.current = value;
+      setInputValue(value);
+      setIsTyping(false);
+    }
   }, [value]);
 
   // Filter local regional hubs instantly based on current query
   const filteredLocalHubs = useMemo(() => {
     const q = inputValue.trim().toLowerCase();
     if (!q) return regionalHubs;
-    return regionalHubs.filter(
-      (h) =>
-        h.city.toLowerCase().includes(q) ||
-        (h.state && h.state.toLowerCase().includes(q)) ||
-        h.label.toLowerCase().includes(q) ||
-        h.display_name.toLowerCase().includes(q)
-    );
+    const tokens = q.split(",").map((t) => t.trim()).filter(Boolean);
+    return regionalHubs.filter((h) => {
+      const hay = `${h.city} ${h.state || ""} ${h.label} ${h.display_name}`.toLowerCase();
+      return tokens.every((tok) => hay.includes(tok));
+    });
   }, [inputValue, regionalHubs]);
 
   // Merged suggestions: local hubs first, followed by unique API results
   const combinedSuggestions = useMemo(() => {
-    if (!inputValue || inputValue.trim() === lastSelectedTextRef.current.trim()) {
+    if (!inputValue.trim() || !isTyping) {
       return regionalHubs;
     }
     const localKeys = new Set(filteredLocalHubs.map((h) => `${h.lat.toFixed(2)},${h.lon.toFixed(2)}`));
@@ -120,17 +197,16 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
       (a) => !localKeys.has(`${a.lat.toFixed(2)},${a.lon.toFixed(2)}`)
     );
     return [...filteredLocalHubs, ...extraApi];
-  }, [inputValue, regionalHubs, filteredLocalHubs, apiSuggestions]);
+  }, [inputValue, isTyping, regionalHubs, filteredLocalHubs, apiSuggestions]);
 
-  // Debounced search logic for additional geocoded locations
+  // Debounced search logic for additional geocoded locations across all 50 US states & worldwide
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
     const trimmed = inputValue.trim();
-    // Don't search if text exactly matches what user just selected
-    if (!trimmed || trimmed === lastSelectedTextRef.current.trim() || trimmed.length < 2) {
+    if (!isTyping || !trimmed || trimmed.length < 2) {
       setApiSuggestions([]);
       setIsLoading(false);
       return;
@@ -147,14 +223,14 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
       } finally {
         setIsLoading(false);
       }
-    }, 250);
+    }, 200);
 
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [inputValue, country]);
+  }, [inputValue, country, isTyping]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -175,8 +251,9 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
 
   const handleSelect = (item: LocationSuggestion) => {
     const selectedText = item.display_name || item.label;
-    lastSelectedTextRef.current = selectedText;
+    internalValueRef.current = selectedText;
     setInputValue(selectedText);
+    setIsTyping(false);
     onChange(selectedText, item);
     setIsOpen(false);
     setApiSuggestions([]);
@@ -184,7 +261,9 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextVal = e.target.value;
+    internalValueRef.current = nextVal;
     setInputValue(nextVal);
+    setIsTyping(true);
     onChange(nextVal);
     setIsOpen(true);
   };
@@ -256,8 +335,9 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
             <button
               type="button"
               onClick={() => {
-                lastSelectedTextRef.current = "";
+                internalValueRef.current = "";
                 setInputValue("");
+                setIsTyping(false);
                 onChange("");
                 setApiSuggestions([]);
                 setIsOpen(true);
@@ -287,7 +367,7 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
           <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center justify-between sticky top-0 z-10 border-b border-slate-100">
             <span className="flex items-center gap-1">
               <Building2 className="w-3 h-3 text-slate-400" />
-              <span>{inputValue && inputValue !== lastSelectedTextRef.current ? "Search Results" : `Freight Transport Hubs (${country})`}</span>
+              <span>{inputValue && isTyping ? "Search Results" : `Freight Transport Hubs (${country})`}</span>
             </span>
             <span className="font-mono text-[9px] text-slate-400">{combinedSuggestions.length} Available</span>
           </div>
