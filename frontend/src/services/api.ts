@@ -124,6 +124,17 @@ function meanCorridorSeparationMiles(
   return sum / fracs.length;
 }
 
+function downsampleCoords(coords: [number, number][], maxPts: number = 600): [number, number][] {
+  if (!coords || coords.length <= maxPts) return coords;
+  const n = coords.length;
+  const result: [number, number][] = [];
+  for (let k = 0; k < maxPts; k++) {
+    const idx = Math.round((k / (maxPts - 1)) * (n - 1));
+    result.push(coords[idx]);
+  }
+  return result;
+}
+
 export function ensureDistinctRouteGeometries(data: EvaluationResponse): EvaluationResponse {
   if (!data.routes || data.routes.length < 2) return data;
 
@@ -133,7 +144,7 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
   const [startLon, startLat] = firstCoords[0];
   const [endLon, endLat] = firstCoords[firstCoords.length - 1];
   const directDistMiles = Math.max(1, haversineMiles(startLat, startLon, endLat, endLon));
-  const minSepMiles = Math.max(4, directDistMiles * 0.075);
+  const minSepMiles = Math.max(4, directDistMiles * 0.065);
 
   const dx = endLon - startLon;
   const dy = endLat - startLat;
@@ -141,19 +152,16 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
   const perpDx = -dy / degSpan;
   const perpDy = dx / degSpan;
 
-  // Ordered from gentlest inward/central corridor shifts to wider bypass shifts
   const candidateArches = [
-    -0.085 * degSpan,
-    0.085 * degSpan,
-    -0.125 * degSpan,
-    0.125 * degSpan,
-    -0.165 * degSpan,
-    0.165 * degSpan,
+    -0.08 * degSpan,
+    0.08 * degSpan,
+    -0.12 * degSpan,
+    0.12 * degSpan,
   ];
 
   const updatedRoutes = data.routes.map((r) => ({
     ...r,
-    coordinates: [...(r.coordinates || [])],
+    coordinates: downsampleCoords([...(r.coordinates || [])], 600),
     checkpoints: [...(r.checkpoints || [])],
   }));
 
@@ -176,12 +184,35 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
     let finalTable = tableI;
 
     if (overlaps) {
-      let bestCoords = coordsI;
-      let bestTable = tableI;
-      let bestScore = -Infinity;
+      const candidates: { coords: [number, number][]; table: { cumDist: number[]; totalDist: number }; penalty: number }[] = [];
 
+      // 1. If there is a distinct non-overlapping partner route, build a Central Interior Corridor
+      // halfway between `coordsI` and the partner route (guaranteed to stay inside the US corridor!)
+      for (let j = 0; j < updatedRoutes.length; j++) {
+        if (j === i) continue;
+        const coordsJ = updatedRoutes[j].coordinates;
+        const tableJ = tables[j];
+        const sepIJ = meanCorridorSeparationMiles(coordsI, tableI, coordsJ, tableJ);
+        if (sepIJ >= minSepMiles * 1.4 && coordsJ.length >= 2 && tableJ.totalDist > 0) {
+          const blended: [number, number][] = coordsI.map(([lon, lat], k) => {
+            const t = tableI.cumDist[k] / tableI.totalDist;
+            const [lonJ, latJ] = samplePolylineByDistanceFraction(coordsJ, tableJ.cumDist, tableJ.totalDist, t);
+            const w = 0.48 * Math.sin(Math.PI * t);
+            return [
+              Number((lon * (1 - w) + lonJ * w).toFixed(6)),
+              Number((lat * (1 - w) + latJ * w).toFixed(6)),
+            ];
+          });
+          candidates.push({
+            coords: blended,
+            table: buildArcLengthTable(blended),
+            penalty: 0,
+          });
+        }
+      }
+
+      // 2. Also include gentle lateral arches parameterized by arc-length
       for (const archDeg of candidateArches) {
-        // Parameterize deflection by true cumulative arc-length distance (t = d / totalDist)
         const testCoords: [number, number][] = coordsI.map(([lon, lat], k) => {
           const t = tableI.cumDist[k] / tableI.totalDist;
           const env = Math.sin(Math.PI * t);
@@ -190,30 +221,39 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
             Number((lat + perpDy * archDeg * env).toFixed(6)),
           ];
         });
-        const testTable = buildArcLengthTable(testCoords);
+        candidates.push({
+          coords: testCoords,
+          table: buildArcLengthTable(testCoords),
+          penalty: Math.abs(archDeg),
+        });
+      }
 
+      let bestCoords = coordsI;
+      let bestTable = tableI;
+      let bestScore = -Infinity;
+
+      for (const cand of candidates) {
         let minSepToOthers = Infinity;
         for (let j = 0; j < updatedRoutes.length; j++) {
           if (j === i) continue;
           const sep = meanCorridorSeparationMiles(
-            testCoords,
-            testTable,
+            cand.coords,
+            cand.table,
             updatedRoutes[j].coordinates,
             tables[j]
           );
           if (sep < minSepToOthers) minSepToOthers = sep;
         }
 
-        // Prefer the first gentle arch that clears minSepMiles without pushing far outside the corridor
         const clearsThreshold = minSepToOthers >= minSepMiles;
         const score = clearsThreshold
-          ? 10000 - Math.abs(archDeg) * 100 + Math.min(minSepToOthers, minSepMiles * 2)
-          : minSepToOthers;
+          ? 10000 - cand.penalty * 500 + Math.min(minSepToOthers, minSepMiles * 1.8)
+          : minSepToOthers - cand.penalty * 50;
 
         if (score > bestScore) {
           bestScore = score;
-          bestCoords = testCoords;
-          bestTable = testTable;
+          bestCoords = cand.coords;
+          bestTable = cand.table;
         }
       }
 

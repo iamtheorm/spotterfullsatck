@@ -820,6 +820,18 @@ def _mean_corridor_separation_miles(coords_a: List[List[float]], coords_b: List[
     return sum(dists) / len(dists)
 
 
+def _downsample_coords(coords: List[List[float]], max_pts: int = 600) -> List[List[float]]:
+    """Downsamples dense OSRM polylines to at most `max_pts` vertices while preserving exact start and end."""
+    if not coords or len(coords) <= max_pts:
+        return coords
+    n = len(coords)
+    result: List[List[float]] = []
+    for k in range(max_pts):
+        idx = int(round((k / float(max_pts - 1)) * (n - 1)))
+        result.append(coords[idx])
+    return result
+
+
 def ensure_distinct_corridor_geometries(
     routes: List[Dict[str, Any]],
     start_lat: float,
@@ -836,8 +848,12 @@ def ensure_distinct_corridor_geometries(
     if not routes or len(routes) < 2:
         return routes
 
+    for r in routes:
+        if r.get("coordinates"):
+            r["coordinates"] = _downsample_coords(r["coordinates"], 600)
+
     direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
-    min_sep_miles = max(4.0, direct_dist_miles * 0.075)
+    min_sep_miles = max(4.0, direct_dist_miles * 0.065)
 
     dx = end_lon - start_lon
     dy = end_lat - start_lat
@@ -845,14 +861,11 @@ def ensure_distinct_corridor_geometries(
     perp_dx = -dy / deg_span
     perp_dy = dx / deg_span
 
-    # Ordered from gentlest inward/central corridor shifts to wider bypass shifts
     candidate_arches = [
-        -0.085 * deg_span,
-        0.085 * deg_span,
-        -0.125 * deg_span,
-        0.125 * deg_span,
-        -0.165 * deg_span,
-        0.165 * deg_span,
+        -0.08 * deg_span,
+        0.08 * deg_span,
+        -0.12 * deg_span,
+        0.12 * deg_span,
     ]
 
     for i in range(1, len(routes)):
@@ -871,41 +884,65 @@ def ensure_distinct_corridor_geometries(
         if tot_i <= 0:
             continue
 
-        best_coords = coords_i
-        best_score = -1e9
-        best_arch = candidate_arches[0]
+        candidate_polylines: List[Tuple[List[List[float]], float]] = []
 
+        # 1. If there is a non-overlapping partner route, build a Central Interior Corridor
+        # halfway between `coords_i` and the distinct partner route (stays 100% inside the US corridor!)
+        for j in range(len(routes)):
+            if j == i:
+                continue
+            coords_j = routes[j].get("coordinates", [])
+            sep_ij = _mean_corridor_separation_miles(coords_i, coords_j)
+            if sep_ij >= min_sep_miles * 1.4 and len(coords_j) >= 2:
+                cum_j, tot_j = _build_arc_length_table(coords_j)
+                if tot_j > 0:
+                    blended: List[List[float]] = []
+                    for k, (lon, lat) in enumerate(coords_i):
+                        t = cum_i[k] / tot_i
+                        lat_j, lon_j = _sample_polyline_by_distance(coords_j, cum_j, tot_j, t)
+                        # Smooth central corridor blend (48% toward partner route across middle)
+                        w = 0.48 * math.sin(math.pi * t)
+                        b_lon = round(lon * (1.0 - w) + lon_j * w, 6)
+                        b_lat = round(lat * (1.0 - w) + lat_j * w, 6)
+                        blended.append([b_lon, b_lat])
+                    candidate_polylines.append((blended, 0.0))
+
+        # 2. Also include gentle lateral arches parameterized by arc-length
         for arch_deg in candidate_arches:
             test_coords: List[List[float]] = []
             for k, (lon, lat) in enumerate(coords_i):
-                # Parameterize by cumulative arc-length distance (never vertex index!)
                 t = cum_i[k] / tot_i
                 envelope = math.sin(math.pi * t)
                 new_lon = round(lon + perp_dx * arch_deg * envelope, 6)
                 new_lat = round(lat + perp_dy * arch_deg * envelope, 6)
                 test_coords.append([new_lon, new_lat])
+            candidate_polylines.append((test_coords, abs(arch_deg)))
 
+        best_coords = coords_i
+        best_score = -1e9
+
+        for test_coords, penalty in candidate_polylines:
             min_sep_to_others = min(
                 _mean_corridor_separation_miles(test_coords, routes[j].get("coordinates", []))
                 for j in range(len(routes))
                 if j != i
             )
             clears = min_sep_to_others >= min_sep_miles
+            # Prefer central blended corridor (penalty == 0) or smallest arch that clears threshold
             score = (
-                10000.0 - abs(arch_deg) * 100.0 + min(min_sep_to_others, min_sep_miles * 2.0)
+                10000.0 - penalty * 500.0 + min(min_sep_to_others, min_sep_miles * 1.8)
                 if clears
-                else min_sep_to_others
+                else min_sep_to_others - penalty * 50.0
             )
             if score > best_score:
                 best_score = score
                 best_coords = test_coords
-                best_arch = arch_deg
 
         # Recompute cumulative distance and checkpoints directly along best_coords
         _, total_dist = _build_arc_length_table(best_coords)
         base_dist = routes[i].get("distance_miles", direct_dist_miles * 1.18)
-        new_dist = max(total_dist, base_dist * (1.02 if best_arch < 0 else 1.04))
-        avg_speed_mph = 58.5 if best_arch < 0 else 56.5
+        new_dist = max(total_dist, base_dist * 1.02)
+        avg_speed_mph = 58.0
         new_dur_sec = (new_dist / avg_speed_mph) * 3600.0
 
         new_checkpoints = interpolate_polyline_checkpoints(

@@ -128,7 +128,8 @@ export function App() {
       localStorage.removeItem("spotter_evaluation");
       localStorage.removeItem("safecorridor_evaluation_v2");
       localStorage.removeItem("safecorridor_evaluation_v3");
-      const stored = localStorage.getItem("safecorridor_evaluation_v4");
+      localStorage.removeItem("safecorridor_evaluation_v4");
+      const stored = localStorage.getItem("safecorridor_evaluation_v5");
       if (stored) {
         const parsed = JSON.parse(stored);
         return ensureDistinctRouteGeometries(parsed);
@@ -214,6 +215,7 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v5");
       localStorage.removeItem("safecorridor_evaluation_v4");
       localStorage.removeItem("safecorridor_evaluation_v3");
       localStorage.removeItem("safecorridor_evaluation_v2");
@@ -261,7 +263,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("safecorridor_evaluation_v4", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v5", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names
