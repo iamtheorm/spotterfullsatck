@@ -417,6 +417,14 @@ export const MapView: React.FC<MapViewProps> = ({
         <MapContainer
           center={[39.8283, -98.5795]}
           zoom={4}
+          minZoom={3}
+          maxZoom={18}
+          maxBounds={[
+            [-85.05112878, -180],
+            [85.05112878, 180],
+          ]}
+          maxBoundsViscosity={1.0}
+          worldCopyJump={true}
           scrollWheelZoom={true}
           className="w-full h-full"
           zoomControl={false}
