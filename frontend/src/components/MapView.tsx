@@ -11,7 +11,6 @@ import {
 import L from "leaflet";
 import { RouteOption, Checkpoint, CorridorData, DistanceUnit } from "../types";
 import {
-  AlertTriangle,
   Play,
   Pause,
   RotateCcw,
@@ -275,9 +274,6 @@ export const MapView: React.FC<MapViewProps> = ({
 
   const startCoords = selectedRoute?.coordinates?.[0];
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
-
-  const hasSevereWeather =
-    selectedRoute?.summary?.severe_miles > 0 || selectedRoute?.summary?.has_no_travel;
 
   // Reset simulation queue when selected route changes or reset clicked
   const handleResetSimulation = () => {
@@ -965,25 +961,6 @@ export const MapView: React.FC<MapViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* 12. WEATHER ALERT BOX (Bottom-Left) */}
-      {hasSevereWeather && (
-        <div className="absolute bottom-4 left-4 z-[1000] pointer-events-auto max-w-sm">
-          <div className="bg-white/95 backdrop-blur-md border border-red-200/80 rounded-2xl p-3 shadow-md flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-red-900 leading-tight">
-                Weather Advisory Along Route
-              </div>
-              <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                {selectedRoute?.summary?.severe_miles || 0} mi severe weather monitored on this corridor
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
