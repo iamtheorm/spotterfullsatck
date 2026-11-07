@@ -34,6 +34,7 @@ import {
   Shield,
 } from "lucide-react";
 import { playTruckAirHorn } from "../utils/audio";
+import { ForecastSlider } from "./ForecastSlider";
 
 export type MapViewStyle = "positron" | "terrain" | "satellite" | "dark" | "osm";
 
@@ -243,6 +244,7 @@ export const MapView: React.FC<MapViewProps> = ({
   onToggleHeatmap,
   forecastHour = 0,
   onHourChange,
+  isLoadingCorridor = false,
   selectedCheckpoint,
   originName = "Origin",
   destinationName = "Destination",
@@ -252,6 +254,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const [mapStyle, setMapStyle] = useState<MapViewStyle>("positron");
 
   const [showCheckpoints, setShowCheckpoints] = useState(true);
+  const [showForecastTimeline, setShowForecastTimeline] = useState(false);
   const [recenterCount, setRecenterCount] = useState(0);
   const [isLayersMenuOpen, setIsLayersMenuOpen] = useState(false);
 
@@ -688,6 +691,23 @@ export const MapView: React.FC<MapViewProps> = ({
             <span>{mapStyle === "terrain" ? "3D Terrain Active" : "3D Terrain"}</span>
           </button>
 
+          {/* 0-48h Weather Forecast Timeline Toggle */}
+          {selectedRoute && onHourChange && (
+            <button
+              type="button"
+              onClick={() => setShowForecastTimeline(!showForecastTimeline)}
+              className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                showForecastTimeline
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+              }`}
+              title="Toggle 0-48 Hour Weather Forecast Timeline Slider"
+            >
+              <Clock className="w-3.5 h-3.5 text-blue-500" />
+              <span>{showForecastTimeline ? `Timeline +${forecastHour}h` : "0–48h Timeline"}</span>
+            </button>
+          )}
+
           {/* Simulation Toggle: Play Route / Pause Route */}
           {selectedRoute && selectedRoute.checkpoints?.length > 0 && (
             <div className="flex items-center space-x-1 px-1 border-x border-slate-200">
@@ -831,6 +851,19 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       </div>
 
+      {/* FLOATING 0-48H WEATHER FORECAST TIMELINE SLIDER */}
+      {showForecastTimeline && onHourChange && (
+        <div className="absolute top-16 right-4 z-[1000] pointer-events-auto max-w-lg w-[95%] sm:w-auto shadow-2xl rounded-2xl animate-in fade-in slide-in-from-top-2 duration-200">
+          <ForecastSlider
+            forecastHour={forecastHour}
+            onHourChange={onHourChange}
+            showHeatmap={showHeatmap}
+            onToggleHeatmap={onToggleHeatmap}
+            isLoadingCorridor={isLoadingCorridor}
+          />
+        </div>
+      )}
+
       {/* 9. ACTIVE CHECKPOINT POPOVER WITH AIR HORN BLAST (Triggered during Simulation) */}
       {activePopoverCP && (() => {
         const isHighRiskOrAbove =
@@ -906,13 +939,20 @@ export const MapView: React.FC<MapViewProps> = ({
 
             <div className="h-4 w-px bg-slate-700 shrink-0"></div>
 
-            <div className="flex items-center space-x-2 min-w-[130px]">
-              <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-sky-400 to-emerald-400 h-1.5 rounded-full transition-all duration-150"
-                  style={{ width: `${Math.round(simProgress * 100)}%` }}
-                ></div>
-              </div>
+            <div className="flex items-center space-x-2 min-w-[140px]">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.005"
+                value={simProgress}
+                onChange={(e) => {
+                  setIsPlaying(false);
+                  setSimProgress(parseFloat(e.target.value));
+                }}
+                className="w-24 sm:w-32 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400"
+                title="Drag to scrub truck location along route"
+              />
               <span className="font-mono text-[10px] text-slate-300 font-bold shrink-0">
                 {Math.round(simProgress * 100)}%
               </span>
