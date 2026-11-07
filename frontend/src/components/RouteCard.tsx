@@ -69,70 +69,71 @@ export const RouteCard: React.FC<RouteCardProps> = ({
       </div>
 
       {/* Main Content: 3 Stats on Left + Risk Mileage Table on Right */}
-      <div className="grid grid-cols-12 gap-2 items-center">
-        {/* Left Side: ETA, Distance, Avg Risk (8 cols) */}
-        <div className="col-span-8 flex items-center justify-between border-r border-slate-200/70 pr-3">
+      <div className="grid grid-cols-12 gap-3 items-center">
+        {/* Left Side: ETA, Distance, Avg Risk (7 cols) */}
+        <div className="col-span-7 flex items-center justify-between border-r border-slate-200/80 pr-2.5">
           {/* ETA */}
           <div>
-            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono">
-              <Clock className="w-3.5 h-3.5 text-slate-700" />
+            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono whitespace-nowrap">
+              <Clock className="w-3.5 h-3.5 text-slate-600 shrink-0" />
               <span>{hours}h {minutes}m</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-semibold ml-4">ETA</span>
+            <span className="text-[10px] text-slate-400 font-semibold pl-[18px] block">ETA</span>
           </div>
 
           {/* Distance */}
           <div>
-            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono">
-              <Navigation className="w-3.5 h-3.5 text-slate-700 rotate-45" />
+            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono whitespace-nowrap">
+              <Navigation className="w-3.5 h-3.5 text-slate-600 rotate-45 shrink-0" />
               <span>{formatDist(distance_miles)}</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-semibold ml-4">Distance</span>
+            <span className="text-[10px] text-slate-400 font-semibold pl-[18px] block">Distance</span>
           </div>
 
           {/* Avg Risk */}
           <div>
-            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs">
-              <Shield className="w-3.5 h-3.5 text-slate-700" />
-              <span>Avg Risk</span>
+            <div className="flex items-center gap-1 text-slate-900 font-extrabold text-xs font-mono whitespace-nowrap">
+              <Shield className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span>
+                {summary.average_risk.toFixed(1)}
+                <span className="text-[10px] text-slate-500 font-normal"> / 5</span>
+              </span>
             </div>
-            <span className="text-[10px] font-extrabold text-slate-800 font-mono ml-4 block">
-              {summary.average_risk.toFixed(1)} / 5
-            </span>
+            <span className="text-[10px] text-slate-400 font-semibold pl-[18px] block">Avg Risk</span>
           </div>
         </div>
 
-        {/* Right Side: Severe / High / Low-Mod Dots & Mileage (4 cols) */}
-        <div className="col-span-4 pl-1 space-y-1 font-mono text-[11px]">
+        {/* Right Side: Severe / High / Low-Mod Dots & Mileage (5 cols) */}
+        <div className="col-span-5 pl-1 space-y-1 font-mono text-[11px]">
           {/* Severe */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
+          <div className="flex items-center justify-between whitespace-nowrap gap-1">
+            <div className="flex items-center space-x-1.5 shrink-0">
               <span className="w-2 h-2 rounded-full bg-red-500"></span>
               <span className="text-[10px] text-slate-600 font-sans font-medium">Severe</span>
             </div>
-            <span className={`font-semibold ${summary.severe_miles > 0 ? "text-red-600 font-bold" : "text-slate-600"}`}>
+            <span className={`font-semibold shrink-0 ${summary.severe_miles > 0 ? "text-red-600 font-bold" : "text-slate-600"}`}>
               {formatDist(summary.severe_miles)}
             </span>
           </div>
 
           {/* High */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
+          <div className="flex items-center justify-between whitespace-nowrap gap-1">
+            <div className="flex items-center space-x-1.5 shrink-0">
               <span className="w-2 h-2 rounded-full bg-orange-400"></span>
               <span className="text-[10px] text-slate-600 font-sans font-medium">High</span>
             </div>
-            <span className={`font-semibold ${summary.high_miles > 0 ? "text-orange-500 font-bold" : "text-slate-600"}`}>
+            <span className={`font-semibold shrink-0 ${summary.high_miles > 0 ? "text-orange-500 font-bold" : "text-slate-600"}`}>
               {formatDist(summary.high_miles)}
             </span>
           </div>
 
           {/* Low/Mod */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5">
+          <div className="flex items-center justify-between whitespace-nowrap gap-1">
+            <div className="flex items-center space-x-1.5 shrink-0">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
               <span className="text-[10px] text-slate-600 font-sans font-medium">Low/Mod</span>
             </div>
-            <span className="text-slate-600 font-medium">
+            <span className="text-slate-600 font-medium shrink-0">
               {formatDist(lowModMiles)}
             </span>
           </div>
