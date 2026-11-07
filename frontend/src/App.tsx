@@ -127,7 +127,8 @@ export function App() {
     try {
       localStorage.removeItem("spotter_evaluation");
       localStorage.removeItem("safecorridor_evaluation_v2");
-      const stored = localStorage.getItem("safecorridor_evaluation_v3");
+      localStorage.removeItem("safecorridor_evaluation_v3");
+      const stored = localStorage.getItem("safecorridor_evaluation_v4");
       if (stored) {
         const parsed = JSON.parse(stored);
         return ensureDistinctRouteGeometries(parsed);
@@ -213,6 +214,7 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v4");
       localStorage.removeItem("safecorridor_evaluation_v3");
       localStorage.removeItem("safecorridor_evaluation_v2");
       localStorage.removeItem("safecorridor_form_inputs_v2");
@@ -259,7 +261,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("safecorridor_evaluation_v3", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v4", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names
@@ -299,9 +301,26 @@ export function App() {
     }
   };
 
-  // Update corridor grid when forecastHour changes
+  // Auto-evaluate on initial mount if origin & destination are present but evaluation cache was refreshed
+  const didInitialEvalRef = useRef(false);
   useEffect(() => {
-    if (!evaluation || !evaluation.routes || evaluation.routes.length === 0)
+    if (didInitialEvalRef.current) return;
+    didInitialEvalRef.current = true;
+    if (!evaluation && formInputs.origin && formInputs.destination) {
+      handleEvaluate({
+        origin: formInputs.origin,
+        destination: formInputs.destination,
+        departure_time: formInputs.departure_time || new Date().toISOString(),
+        load_weight: formInputs.load_weight || 34000,
+        step_miles: formInputs.step_miles || 25,
+        weather_scenario: formInputs.weather_scenario || "live",
+      });
+    }
+  }, []);
+
+  // Update corridor grid when forecastHour changes (only when heatmap overlay is active)
+  useEffect(() => {
+    if (!showHeatmap || !evaluation || !evaluation.routes || evaluation.routes.length === 0)
       return;
 
     if (forecastHour === 0 && evaluation.corridor) {
@@ -335,7 +354,7 @@ export function App() {
         clearTimeout(corridorDebounceRef.current);
       }
     };
-  }, [forecastHour, evaluation]);
+  }, [forecastHour, evaluation, showHeatmap]);
 
   return (
     <div className="h-screen w-screen bg-slate-100 flex flex-col font-sans text-slate-900 overflow-hidden">

@@ -768,24 +768,54 @@ def fetch_ors_routes(
     return None
 
 
-def _sample_polyline_point(coords: List[List[float]], frac: float) -> Tuple[float, float]:
-    """Returns (lat, lon) at fractional index `frac` (0.0 to 1.0) along a coordinate list."""
+def _build_arc_length_table(coords: List[List[float]]) -> Tuple[List[float], float]:
+    """Returns (cum_distances, total_distance_miles) along a polyline."""
+    cum_dist = [0.0]
+    for i in range(1, len(coords)):
+        lon1, lat1 = coords[i - 1]
+        lon2, lat2 = coords[i]
+        cum_dist.append(cum_dist[-1] + haversine_miles(lat1, lon1, lat2, lon2))
+    return cum_dist, cum_dist[-1] if cum_dist else 0.0
+
+
+def _sample_polyline_by_distance(
+    coords: List[List[float]], cum_dist: List[float], total_dist: float, frac: float
+) -> Tuple[float, float]:
+    """Returns (lat, lon) at fractional arc-length distance `frac` (0.0 to 1.0) along a polyline."""
     if not coords:
         return (0.0, 0.0)
-    idx = max(0, min(len(coords) - 1, int(round(frac * (len(coords) - 1)))))
-    lon, lat = coords[idx]
-    return (lat, lon)
+    if len(coords) == 1 or total_dist <= 1e-6:
+        return (coords[0][1], coords[0][0])
+
+    target_d = max(0.0, min(1.0, frac)) * total_dist
+    lo = 0
+    hi = len(cum_dist) - 2
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if cum_dist[mid] <= target_d:
+            lo = mid
+        else:
+            hi = mid - 1
+
+    d0 = cum_dist[lo]
+    d1 = cum_dist[lo + 1]
+    ratio = max(0.0, min(1.0, (target_d - d0) / (d1 - d0))) if d1 > d0 else 0.0
+    lon1, lat1 = coords[lo]
+    lon2, lat2 = coords[lo + 1]
+    return (lat1 + (lat2 - lat1) * ratio, lon1 + (lon2 - lon1) * ratio)
 
 
 def _mean_corridor_separation_miles(coords_a: List[List[float]], coords_b: List[List[float]]) -> float:
-    """Computes average Haversine separation (in miles) across interior points of two polylines."""
+    """Computes average Haversine separation (in miles) across interior arc-length fractions of two polylines."""
     if not coords_a or not coords_b:
         return 0.0
+    cum_a, tot_a = _build_arc_length_table(coords_a)
+    cum_b, tot_b = _build_arc_length_table(coords_b)
     sample_fracs = (0.25, 0.38, 0.50, 0.62, 0.75)
     dists = []
     for f in sample_fracs:
-        lat1, lon1 = _sample_polyline_point(coords_a, f)
-        lat2, lon2 = _sample_polyline_point(coords_b, f)
+        lat1, lon1 = _sample_polyline_by_distance(coords_a, cum_a, tot_a, f)
+        lat2, lon2 = _sample_polyline_by_distance(coords_b, cum_b, tot_b, f)
         dists.append(haversine_miles(lat1, lon1, lat2, lon2))
     return sum(dists) / len(dists)
 
@@ -800,15 +830,14 @@ def ensure_distinct_corridor_geometries(
     departure_time: datetime,
 ) -> List[Dict[str, Any]]:
     """
-    Guarantees that all 3 route alternatives follow geographically distinct paths on the map.
-    If OSRM/ORS snaps two corridors onto the same interstate trunk (separation < 8.5% of direct distance),
-    deflects the overlapping corridor along a smooth lateral highway arch and regenerates its checkpoints.
+    Guarantees that all 3 route alternatives follow geographically distinct paths on the map,
+    and that every route's checkpoints are interpolated directly along its own polyline.
     """
     if not routes or len(routes) < 2:
         return routes
 
     direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
-    min_sep_miles = max(4.0, direct_dist_miles * 0.085)
+    min_sep_miles = max(4.0, direct_dist_miles * 0.075)
 
     dx = end_lon - start_lon
     dy = end_lat - start_lat
@@ -816,14 +845,14 @@ def ensure_distinct_corridor_geometries(
     perp_dx = -dy / deg_span
     perp_dy = dx / deg_span
 
-    # Candidate lateral arch deflections (in degrees) relative to the base polyline
+    # Ordered from gentlest inward/central corridor shifts to wider bypass shifts
     candidate_arches = [
-        0.16 * deg_span,
-        -0.16 * deg_span,
-        0.25 * deg_span,
-        -0.25 * deg_span,
-        0.11 * deg_span,
-        -0.11 * deg_span,
+        -0.085 * deg_span,
+        0.085 * deg_span,
+        -0.125 * deg_span,
+        0.125 * deg_span,
+        -0.165 * deg_span,
+        0.165 * deg_span,
     ]
 
     for i in range(1, len(routes)):
@@ -831,7 +860,6 @@ def ensure_distinct_corridor_geometries(
         if len(coords_i) < 2:
             continue
 
-        # Check if route `i` overlaps with any earlier route `0..i-1`
         overlaps = any(
             _mean_corridor_separation_miles(coords_i, routes[j].get("coordinates", [])) < min_sep_miles
             for j in range(i)
@@ -839,16 +867,19 @@ def ensure_distinct_corridor_geometries(
         if not overlaps:
             continue
 
-        # Choose the lateral arch deflection that maximizes minimum separation from all other routes
+        cum_i, tot_i = _build_arc_length_table(coords_i)
+        if tot_i <= 0:
+            continue
+
         best_coords = coords_i
-        best_min_sep = -1.0
+        best_score = -1e9
         best_arch = candidate_arches[0]
 
-        n_pts = len(coords_i)
         for arch_deg in candidate_arches:
             test_coords: List[List[float]] = []
             for k, (lon, lat) in enumerate(coords_i):
-                t = k / float(max(1, n_pts - 1))
+                # Parameterize by cumulative arc-length distance (never vertex index!)
+                t = cum_i[k] / tot_i
                 envelope = math.sin(math.pi * t)
                 new_lon = round(lon + perp_dx * arch_deg * envelope, 6)
                 new_lat = round(lat + perp_dy * arch_deg * envelope, 6)
@@ -859,22 +890,22 @@ def ensure_distinct_corridor_geometries(
                 for j in range(len(routes))
                 if j != i
             )
-            if min_sep_to_others > best_min_sep:
-                best_min_sep = min_sep_to_others
+            clears = min_sep_to_others >= min_sep_miles
+            score = (
+                10000.0 - abs(arch_deg) * 100.0 + min(min_sep_to_others, min_sep_miles * 2.0)
+                if clears
+                else min_sep_to_others
+            )
+            if score > best_score:
+                best_score = score
                 best_coords = test_coords
                 best_arch = arch_deg
 
-        # Recompute cumulative distance and checkpoints along the separated highway path
-        total_dist = 0.0
-        for k in range(1, len(best_coords)):
-            lon1, lat1 = best_coords[k - 1]
-            lon2, lat2 = best_coords[k]
-            total_dist += haversine_miles(lat1, lon1, lat2, lon2)
-
-        # Ensure realistic highway distance & duration
+        # Recompute cumulative distance and checkpoints directly along best_coords
+        _, total_dist = _build_arc_length_table(best_coords)
         base_dist = routes[i].get("distance_miles", direct_dist_miles * 1.18)
-        new_dist = max(total_dist, base_dist * (1.03 if best_arch > 0 else 1.05))
-        avg_speed_mph = 58.5 if best_arch > 0 else 56.5
+        new_dist = max(total_dist, base_dist * (1.02 if best_arch < 0 else 1.04))
+        avg_speed_mph = 58.5 if best_arch < 0 else 56.5
         new_dur_sec = (new_dist / avg_speed_mph) * 3600.0
 
         new_checkpoints = interpolate_polyline_checkpoints(

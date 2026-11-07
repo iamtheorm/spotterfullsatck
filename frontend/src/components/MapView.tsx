@@ -441,6 +441,40 @@ export const MapView: React.FC<MapViewProps> = ({
   const startCoords = selectedRoute?.coordinates?.[0];
   const endCoords = selectedRoute?.coordinates?.[selectedRoute.coordinates.length - 1];
 
+  // Memoize initial marker coordinates and icons so react-leaflet never resets marker positions during simulation re-renders
+  const initialTruckPosition = useMemo<[number, number] | null>(() => {
+    if (!startCoords) return null;
+    return [startCoords[1], startCoords[0]];
+  }, [activeRouteId, startCoords?.[0], startCoords?.[1]]);
+
+  const originPosition = useMemo<[number, number] | null>(() => {
+    if (!startCoords) return null;
+    return [startCoords[1], startCoords[0]];
+  }, [startCoords?.[0], startCoords?.[1]]);
+
+  const destPosition = useMemo<[number, number] | null>(() => {
+    if (!endCoords) return null;
+    return [endCoords[1], endCoords[0]];
+  }, [endCoords?.[0], endCoords?.[1]]);
+
+  const originIcon = useMemo(() => createOriginMarker(originCity), [originCity]);
+  const destIcon = useMemo(() => createDestinationMarker(destCity), [destCity]);
+
+  // Memoize polyline position arrays so react-leaflet never re-draws polylines during simulation progress ticks
+  const activePolylinePositions = useMemo<[number, number][]>(() => {
+    if (!selectedRoute?.coordinates) return [];
+    return selectedRoute.coordinates.map(([lon, lat]) => [lat, lon]);
+  }, [selectedRoute]);
+
+  const inactiveRoutesWithPositions = useMemo(() => {
+    return routes
+      .filter((r) => r.id !== activeRouteId)
+      .map((r) => ({
+        route: r,
+        positions: r.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]),
+      }));
+  }, [routes, activeRouteId]);
+
   // Precompute arc-length smoothed track for constant-speed, zero-jitter truck motion
   const smoothTrack = useMemo(
     () => buildSmoothRouteTrack(selectedRoute?.coordinates),
@@ -494,15 +528,15 @@ export const MapView: React.FC<MapViewProps> = ({
     return sampleSmoothRouteTrack(smoothTrack, simProgress);
   }, [smoothTrack, simProgress]);
 
-  // Dynamic Weather Heatmap Sync: as the truck drives towards destination, update forecast hour
+  // Dynamic Weather Heatmap Sync: only update forecast hour during playback when heatmap or timeline is active
   useEffect(() => {
-    if (!isPlaying || !selectedRoute) return;
+    if (!isPlaying || !selectedRoute || (!showHeatmap && !showForecastTimeline)) return;
     const totalHours = selectedRoute.duration_hours || 6;
     const currentSimHour = Math.min(48, Math.max(0, Math.round(simProgress * totalHours)));
     if (onHourChange && currentSimHour !== forecastHour) {
       onHourChange(currentSimHour);
     }
-  }, [isPlaying, simProgress, selectedRoute, forecastHour, onHourChange]);
+  }, [isPlaying, simProgress, selectedRoute, forecastHour, onHourChange, showHeatmap, showForecastTimeline]);
 
   // Nearest checkpoint to current truck location for live weather telemetry
   const currentNearestCp = useMemo(() => {
@@ -719,55 +753,52 @@ export const MapView: React.FC<MapViewProps> = ({
           )}
 
           {/* 3. INACTIVE ALTERNATIVE ROUTES: Distinct Highway Corridors */}
-          {routes
-            .filter((r) => r.id !== activeRouteId)
-            .map((r, idx) => {
-              const coords: [number, number][] = r.coordinates.map(([lon, lat]) => [lat, lon]);
-              const altColor =
-                mapStyle === "dark"
-                  ? idx === 0
-                    ? "#60a5fa"
-                    : "#94a3b8"
-                  : idx === 0
-                  ? "#475569"
-                  : "#64748b";
-              return (
-                <React.Fragment key={`inactive-group-${r.id}`}>
-                  <Polyline
-                    key={`inactive-casing-${r.id}`}
-                    positions={coords}
-                    pathOptions={{
-                      color: mapStyle === "dark" ? "#0f172a" : "#ffffff",
-                      weight: 6.5,
-                      opacity: 0.65,
-                    }}
-                    eventHandlers={{
-                      click: () => onSelectRoute(r.id),
-                    }}
-                  />
-                  <Polyline
-                    key={`inactive-${r.id}`}
-                    positions={coords}
-                    pathOptions={{
-                      color: altColor,
-                      weight: 3.8,
-                      opacity: 0.82,
-                      dashArray: "8, 6",
-                    }}
-                    eventHandlers={{
-                      click: () => onSelectRoute(r.id),
-                    }}
-                  />
-                </React.Fragment>
-              );
-            })}
+          {inactiveRoutesWithPositions.map(({ route: r, positions: coords }, idx) => {
+            const altColor =
+              mapStyle === "dark"
+                ? idx === 0
+                  ? "#60a5fa"
+                  : "#94a3b8"
+                : idx === 0
+                ? "#475569"
+                : "#64748b";
+            return (
+              <React.Fragment key={`inactive-group-${r.id}`}>
+                <Polyline
+                  key={`inactive-casing-${r.id}`}
+                  positions={coords}
+                  pathOptions={{
+                    color: mapStyle === "dark" ? "#0f172a" : "#ffffff",
+                    weight: 6.5,
+                    opacity: 0.65,
+                  }}
+                  eventHandlers={{
+                    click: () => onSelectRoute(r.id),
+                  }}
+                />
+                <Polyline
+                  key={`inactive-${r.id}`}
+                  positions={coords}
+                  pathOptions={{
+                    color: altColor,
+                    weight: 3.8,
+                    opacity: 0.82,
+                    dashArray: "8, 6",
+                  }}
+                  eventHandlers={{
+                    click: () => onSelectRoute(r.id),
+                  }}
+                />
+              </React.Fragment>
+            );
+          })}
 
           {/* 4. ACTIVE ROUTE POLYLINE: Bold Emerald Focus Path */}
-          {selectedRoute && (
+          {selectedRoute && activePolylinePositions.length > 0 && (
             <>
               <Polyline
                 key={`active-glow-${selectedRoute.id}`}
-                positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
+                positions={activePolylinePositions}
                 pathOptions={{
                   color: "#22c55e",
                   weight: 10,
@@ -776,7 +807,7 @@ export const MapView: React.FC<MapViewProps> = ({
               />
               <Polyline
                 key={`active-core-${selectedRoute.id}`}
-                positions={selectedRoute.coordinates.map(([lon, lat]) => [lat, lon])}
+                positions={activePolylinePositions}
                 pathOptions={{
                   color: "#16a34a",
                   weight: 5,
@@ -787,23 +818,23 @@ export const MapView: React.FC<MapViewProps> = ({
           )}
 
           {/* 5. ORIGIN & DESTINATION LABELED PINS */}
-          {startCoords && (
+          {originPosition && (
             <Marker
-              position={[startCoords[1], startCoords[0]]}
-              icon={createOriginMarker(originCity)}
+              position={originPosition}
+              icon={originIcon}
               keyboard={false}
             />
           )}
-          {endCoords && (
+          {destPosition && (
             <Marker
-              position={[endCoords[1], endCoords[0]]}
-              icon={createDestinationMarker(destCity)}
+              position={destPosition}
+              icon={destIcon}
               keyboard={false}
             />
           )}
 
           {/* 6. ANIMATED MOVING COMMERCIAL TRUCK MARKER (Imperative 60fps Pose Updates) */}
-          {startCoords && (
+          {initialTruckPosition && (
             <Marker
               ref={(m) => {
                 truckMarkerRef.current = m;
@@ -811,7 +842,7 @@ export const MapView: React.FC<MapViewProps> = ({
                   applyTruckPoseToMarker(simProgressRef.current);
                 }
               }}
-              position={[startCoords[1], startCoords[0]]}
+              position={initialTruckPosition}
               icon={stableTruckIcon}
               keyboard={false}
               zIndexOffset={1000}

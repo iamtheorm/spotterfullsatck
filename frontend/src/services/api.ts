@@ -67,20 +67,58 @@ function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function samplePolylinePoint(coords: [number, number][], frac: number): [number, number] {
-  if (!coords || coords.length === 0) return [0, 0];
-  const idx = Math.max(0, Math.min(coords.length - 1, Math.round(frac * (coords.length - 1))));
-  const [lon, lat] = coords[idx];
-  return [lat, lon];
+function buildArcLengthTable(coords: [number, number][]): { cumDist: number[]; totalDist: number } {
+  const cumDist: number[] = [0];
+  for (let i = 1; i < coords.length; i++) {
+    const [lon1, lat1] = coords[i - 1];
+    const [lon2, lat2] = coords[i];
+    const d = haversineMiles(lat1, lon1, lat2, lon2);
+    cumDist.push(cumDist[i - 1] + d);
+  }
+  return { cumDist, totalDist: cumDist[cumDist.length - 1] || 0 };
 }
 
-function meanCorridorSeparationMiles(coordsA: [number, number][], coordsB: [number, number][]): number {
+function samplePolylineByDistanceFraction(
+  coords: [number, number][],
+  cumDist: number[],
+  totalDist: number,
+  frac: number
+): [number, number] {
+  if (!coords || coords.length === 0) return [0, 0];
+  if (coords.length === 1 || totalDist <= 1e-6) return coords[0];
+  const targetDist = Math.max(0, Math.min(1, frac)) * totalDist;
+
+  let lo = 0;
+  let hi = cumDist.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (cumDist[mid] <= targetDist) lo = mid;
+    else hi = mid - 1;
+  }
+
+  const d0 = cumDist[lo];
+  const d1 = cumDist[lo + 1];
+  const ratio = d1 > d0 ? Math.max(0, Math.min(1, (targetDist - d0) / (d1 - d0))) : 0;
+  const [lon1, lat1] = coords[lo];
+  const [lon2, lat2] = coords[lo + 1];
+  return [
+    Number((lon1 + (lon2 - lon1) * ratio).toFixed(6)),
+    Number((lat1 + (lat2 - lat1) * ratio).toFixed(6)),
+  ];
+}
+
+function meanCorridorSeparationMiles(
+  coordsA: [number, number][],
+  tableA: { cumDist: number[]; totalDist: number },
+  coordsB: [number, number][],
+  tableB: { cumDist: number[]; totalDist: number }
+): number {
   if (!coordsA?.length || !coordsB?.length) return 0;
   const fracs = [0.25, 0.38, 0.5, 0.62, 0.75];
   let sum = 0;
   for (const f of fracs) {
-    const [lat1, lon1] = samplePolylinePoint(coordsA, f);
-    const [lat2, lon2] = samplePolylinePoint(coordsB, f);
+    const [lon1, lat1] = samplePolylineByDistanceFraction(coordsA, tableA.cumDist, tableA.totalDist, f);
+    const [lon2, lat2] = samplePolylineByDistanceFraction(coordsB, tableB.cumDist, tableB.totalDist, f);
     sum += haversineMiles(lat1, lon1, lat2, lon2);
   }
   return sum / fracs.length;
@@ -95,7 +133,7 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
   const [startLon, startLat] = firstCoords[0];
   const [endLon, endLat] = firstCoords[firstCoords.length - 1];
   const directDistMiles = Math.max(1, haversineMiles(startLat, startLon, endLat, endLon));
-  const minSepMiles = Math.max(4, directDistMiles * 0.085);
+  const minSepMiles = Math.max(4, directDistMiles * 0.075);
 
   const dx = endLon - startLon;
   const dy = endLat - startLat;
@@ -103,13 +141,14 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
   const perpDx = -dy / degSpan;
   const perpDy = dx / degSpan;
 
+  // Ordered from gentlest inward/central corridor shifts to wider bypass shifts
   const candidateArches = [
-    0.16 * degSpan,
-    -0.16 * degSpan,
-    0.25 * degSpan,
-    -0.25 * degSpan,
-    0.11 * degSpan,
-    -0.11 * degSpan,
+    -0.085 * degSpan,
+    0.085 * degSpan,
+    -0.125 * degSpan,
+    0.125 * degSpan,
+    -0.165 * degSpan,
+    0.165 * degSpan,
   ];
 
   const updatedRoutes = data.routes.map((r) => ({
@@ -118,62 +157,111 @@ export function ensureDistinctRouteGeometries(data: EvaluationResponse): Evaluat
     checkpoints: [...(r.checkpoints || [])],
   }));
 
+  const tables = updatedRoutes.map((r) => buildArcLengthTable(r.coordinates));
+
   for (let i = 1; i < updatedRoutes.length; i++) {
     const coordsI = updatedRoutes[i].coordinates;
-    if (coordsI.length < 2) continue;
+    const tableI = tables[i];
+    if (coordsI.length < 2 || tableI.totalDist <= 0) continue;
 
     let overlaps = false;
     for (let j = 0; j < i; j++) {
-      if (meanCorridorSeparationMiles(coordsI, updatedRoutes[j].coordinates) < minSepMiles) {
+      if (meanCorridorSeparationMiles(coordsI, tableI, updatedRoutes[j].coordinates, tables[j]) < minSepMiles) {
         overlaps = true;
         break;
       }
     }
-    if (!overlaps) continue;
 
-    let bestArch = candidateArches[0];
-    let bestMinSep = -1;
-    let bestCoords = coordsI;
+    let finalCoords = coordsI;
+    let finalTable = tableI;
 
-    const nPts = coordsI.length;
-    for (const archDeg of candidateArches) {
-      const testCoords: [number, number][] = coordsI.map(([lon, lat], k) => {
-        const t = k / Math.max(1, nPts - 1);
-        const env = Math.sin(Math.PI * t);
-        return [
-          Number((lon + perpDx * archDeg * env).toFixed(6)),
-          Number((lat + perpDy * archDeg * env).toFixed(6)),
-        ];
-      });
+    if (overlaps) {
+      let bestCoords = coordsI;
+      let bestTable = tableI;
+      let bestScore = -Infinity;
 
-      let minSepToOthers = Infinity;
-      for (let j = 0; j < updatedRoutes.length; j++) {
-        if (j === i) continue;
-        const sep = meanCorridorSeparationMiles(testCoords, updatedRoutes[j].coordinates);
-        if (sep < minSepToOthers) minSepToOthers = sep;
+      for (const archDeg of candidateArches) {
+        // Parameterize deflection by true cumulative arc-length distance (t = d / totalDist)
+        const testCoords: [number, number][] = coordsI.map(([lon, lat], k) => {
+          const t = tableI.cumDist[k] / tableI.totalDist;
+          const env = Math.sin(Math.PI * t);
+          return [
+            Number((lon + perpDx * archDeg * env).toFixed(6)),
+            Number((lat + perpDy * archDeg * env).toFixed(6)),
+          ];
+        });
+        const testTable = buildArcLengthTable(testCoords);
+
+        let minSepToOthers = Infinity;
+        for (let j = 0; j < updatedRoutes.length; j++) {
+          if (j === i) continue;
+          const sep = meanCorridorSeparationMiles(
+            testCoords,
+            testTable,
+            updatedRoutes[j].coordinates,
+            tables[j]
+          );
+          if (sep < minSepToOthers) minSepToOthers = sep;
+        }
+
+        // Prefer the first gentle arch that clears minSepMiles without pushing far outside the corridor
+        const clearsThreshold = minSepToOthers >= minSepMiles;
+        const score = clearsThreshold
+          ? 10000 - Math.abs(archDeg) * 100 + Math.min(minSepToOthers, minSepMiles * 2)
+          : minSepToOthers;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestCoords = testCoords;
+          bestTable = testTable;
+        }
       }
-      if (minSepToOthers > bestMinSep) {
-        bestMinSep = minSepToOthers;
-        bestArch = archDeg;
-        bestCoords = testCoords;
-      }
+
+      finalCoords = bestCoords;
+      finalTable = bestTable;
+      tables[i] = finalTable;
     }
 
+    // Always snap checkpoints directly onto the route's own polyline by arc-length fraction
+    // so every checkpoint dot is guaranteed to sit 100% on the center of its route line
     const totalCps = updatedRoutes[i].checkpoints.length;
-    const deflectedCheckpoints = updatedRoutes[i].checkpoints.map((cp, cIdx) => {
-      const t = cIdx / Math.max(1, totalCps - 1);
-      const env = Math.sin(Math.PI * t);
+    const alignedCheckpoints = updatedRoutes[i].checkpoints.map((cp, cIdx) => {
+      const frac = totalCps > 1 ? cIdx / (totalCps - 1) : 0;
+      const [lon, lat] = samplePolylineByDistanceFraction(
+        finalCoords,
+        finalTable.cumDist,
+        finalTable.totalDist,
+        frac
+      );
       return {
         ...cp,
-        lon: Number((cp.lon + perpDx * bestArch * env).toFixed(6)),
-        lat: Number((cp.lat + perpDy * bestArch * env).toFixed(6)),
+        lon,
+        lat,
       };
     });
 
     updatedRoutes[i] = {
       ...updatedRoutes[i],
-      coordinates: bestCoords,
-      checkpoints: deflectedCheckpoints,
+      coordinates: finalCoords,
+      checkpoints: alignedCheckpoints,
+    };
+  }
+
+  // Also ensure route 0's checkpoints are snapped onto route 0's polyline
+  if (updatedRoutes[0] && updatedRoutes[0].coordinates.length >= 2 && tables[0].totalDist > 0) {
+    const totalCps0 = updatedRoutes[0].checkpoints.length;
+    updatedRoutes[0] = {
+      ...updatedRoutes[0],
+      checkpoints: updatedRoutes[0].checkpoints.map((cp, cIdx) => {
+        const frac = totalCps0 > 1 ? cIdx / (totalCps0 - 1) : 0;
+        const [lon, lat] = samplePolylineByDistanceFraction(
+          updatedRoutes[0].coordinates,
+          tables[0].cumDist,
+          tables[0].totalDist,
+          frac
+        );
+        return { ...cp, lon, lat };
+      }),
     };
   }
 
