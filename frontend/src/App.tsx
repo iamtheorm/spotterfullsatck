@@ -110,7 +110,8 @@ export function App() {
   // Form input state with local persistence
   const [formInputs, setFormInputs] = useState<Partial<RouteEvaluationRequest>>(() => {
     try {
-      const stored = localStorage.getItem("spotter_form_inputs");
+      localStorage.removeItem("spotter_form_inputs");
+      const stored = localStorage.getItem("safecorridor_form_inputs_v2");
       if (stored) return JSON.parse(stored);
     } catch {}
     return {
@@ -124,7 +125,8 @@ export function App() {
   // Active evaluation response state with local persistence
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(() => {
     try {
-      const stored = localStorage.getItem("spotter_evaluation");
+      localStorage.removeItem("spotter_evaluation");
+      const stored = localStorage.getItem("safecorridor_evaluation_v2");
       if (stored) return JSON.parse(stored);
     } catch {}
     return null;
@@ -207,6 +209,8 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v2");
+      localStorage.removeItem("safecorridor_form_inputs_v2");
       localStorage.removeItem("spotter_evaluation");
       localStorage.removeItem("spotter_form_inputs");
     } catch {}
@@ -214,6 +218,7 @@ export function App() {
     setSelectedRouteId("");
     setSelectedRouteName("");
     setCorridorData(undefined);
+    setShowHeatmap(false);
     setFormInputs({
       origin: "",
       destination: "",
@@ -228,11 +233,12 @@ export function App() {
     setError(null);
     setSelectedCheckpoint(null);
     setForecastHour(0);
+    setShowHeatmap(false);
 
     // Save submitted input immediately
     setFormInputs(req);
     try {
-      localStorage.setItem("spotter_form_inputs", JSON.stringify(req));
+      localStorage.setItem("safecorridor_form_inputs_v2", JSON.stringify(req));
     } catch {}
 
     // Auto-detect or sync region from the submitted inputs
@@ -248,7 +254,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("spotter_evaluation", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v2", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names
@@ -259,7 +265,7 @@ export function App() {
       };
       setFormInputs(resolvedInputs);
       try {
-        localStorage.setItem("spotter_form_inputs", JSON.stringify(resolvedInputs));
+        localStorage.setItem("safecorridor_form_inputs_v2", JSON.stringify(resolvedInputs));
       } catch {}
 
       // Also ensure detected country code matches resolved origin/destination

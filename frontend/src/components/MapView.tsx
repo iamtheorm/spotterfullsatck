@@ -620,7 +620,68 @@ export const MapView: React.FC<MapViewProps> = ({
             </Marker>
           )}
 
-          {/* 7. CHECKPOINT RISK DOTS */}
+          {/* 7a. INACTIVE ROUTE HAZARD CHECKPOINTS (High / Severe / No Travel Storm Fronts) */}
+          {showCheckpoints &&
+            routes
+              .filter((r) => r.id !== selectedRouteId)
+              .map((r) =>
+                r.checkpoints
+                  ?.filter(
+                    (cp) =>
+                      cp.final_score >= 3 ||
+                      cp.final_level === "High" ||
+                      cp.final_level === "Severe" ||
+                      cp.final_level === "No Travel"
+                  )
+                  .map((cp) => {
+                    const color =
+                      cp.final_level === "No Travel"
+                        ? "#991b1b"
+                        : cp.final_level === "Severe"
+                        ? "#ef4444"
+                        : "#f97316";
+
+                    return (
+                      <CircleMarker
+                        key={`inactive-hazard-${r.id}-${cp.index}`}
+                        center={[cp.lat, cp.lon]}
+                        radius={4}
+                        pathOptions={{
+                          color: "#ffffff",
+                          fillColor: color,
+                          fillOpacity: 0.85,
+                          weight: 1.2,
+                        }}
+                        eventHandlers={{
+                          click: () => {
+                            onSelectRoute(r.id);
+                            onOpenModal(cp, r.name);
+                          },
+                        }}
+                      >
+                        <Tooltip direction="top" offset={[0, -6]} opacity={0.96}>
+                          <div className="font-mono text-center">
+                            <div className="font-bold text-amber-300 text-[10px]">
+                              {r.name}
+                            </div>
+                            <div className="font-bold text-sky-400">
+                              CP #{cp.index} &bull; Mile {cp.mile_marker}
+                            </div>
+                            <div className="text-[10px] text-slate-300 mt-0.5">
+                              Wind: {cp.weather?.wind_mph} mph | Rain: {cp.weather?.rain_in_per_hr} in/h
+                              {cp.weather?.snow_in_per_hr ? ` | Snow: ${cp.weather.snow_in_per_hr} in/h` : ""}
+                            </div>
+                            <div className="mt-1 font-bold text-red-400">
+                              Hazard Avoided: {cp.final_level}
+                            </div>
+                          </div>
+                        </Tooltip>
+                      </CircleMarker>
+                    );
+                  })
+              )}
+
+          {/* 7b. ACTIVE ROUTE CHECKPOINT RISK DOTS */}
           {showCheckpoints &&
             selectedRoute?.checkpoints?.map((cp) => {
               const isSelected = selectedCheckpoint?.index === cp.index;
@@ -660,6 +721,7 @@ export const MapView: React.FC<MapViewProps> = ({
                       </div>
                       <div className="text-[10px] text-slate-300 mt-0.5">
                         Wind: {cp.weather?.wind_mph} mph | Rain: {cp.weather?.rain_in_per_hr} in/h
+                        {cp.weather?.snow_in_per_hr ? ` | Snow: ${cp.weather.snow_in_per_hr} in/h` : ""}
                       </div>
                       <div className="mt-1 font-bold text-amber-300">
                         Risk: {cp.final_level}

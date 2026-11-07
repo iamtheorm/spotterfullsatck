@@ -464,7 +464,7 @@ def generate_simulated_alternatives(
     """
     direct_dist = haversine_miles(start_lat, start_lon, end_lat, end_lon)
     route_profiles = [
-        {"name": "Interstate Primary Route (Fastest)", "detour_factor": 1.15, "curve_offset": 0.0, "speed_mph": 62.0},
+        {"name": "Interstate Primary Route (Fastest)", "detour_factor": 1.15, "curve_offset": 0.05, "speed_mph": 62.0},
         {"name": "Northern Bypass Corridor", "detour_factor": 1.25, "curve_offset": 0.15, "speed_mph": 58.0},
         {"name": "Southern Regional Corridor", "detour_factor": 1.28, "curve_offset": -0.16, "speed_mph": 56.0},
     ]
@@ -675,58 +675,101 @@ def fetch_osrm_routes(
     step_miles: float,
     departure_time: datetime,
 ) -> Optional[List[Dict[str, Any]]]:
-    """Queries public OSRM for driving routes with alternatives=true."""
-    url = f"https://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson&alternatives=3"
-    try:
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            raw_routes = data.get("routes", [])
-            if not raw_routes:
-                return None
+    """
+    Queries public OSRM for 3 distinct highway corridors:
+    1. Direct Primary Corridor
+    2. Northern / Eastern Lateral Bypass Corridor
+    3. Southern / Western Lateral Bypass Corridor
+    """
+    direct_dist_miles = haversine_miles(start_lat, start_lon, end_lat, end_lon)
 
-            routes = []
-            for i, r in enumerate(raw_routes):
-                dist_meters = r.get("distance", 0.0)
-                dur_seconds = r.get("duration", 0.0)
-                coords = r.get("geometry", {}).get("coordinates", [])
+    dx = end_lon - start_lon
+    dy = end_lat - start_lat
+    mid_lon = (start_lon + end_lon) / 2.0
+    mid_lat = (start_lat + end_lat) / 2.0
 
-                dist_miles = dist_meters * METERS_TO_MILES
-                checkpoints = interpolate_polyline_checkpoints(
-                    coordinates=coords,
-                    step_miles=step_miles,
-                    total_distance_miles=dist_miles,
-                    total_duration_seconds=dur_seconds,
-                    departure_time=departure_time,
-                )
+    perp_dx = -dy
+    perp_dy = dx
+    norm = math.hypot(perp_dx, perp_dy) or 1.0
+    perp_dx /= norm
+    perp_dy /= norm
 
-                routes.append({
-                    "id": f"route_option_{i + 1}",
-                    "name": f"OSRM Highway Route {i + 1}",
-                    "summary_title": f"Route {i + 1} (OSRM)",
-                    "distance_miles": round(dist_miles, 1),
-                    "duration_hours": round(dur_seconds / 3600.0, 1),
-                    "duration_seconds": round(dur_seconds, 0),
-                    "coordinates": coords,
-                    "checkpoints": checkpoints,
-                    "step_miles": step_miles,
-                })
+    offset_dist = min(3.0, max(0.35, direct_dist_miles * 0.002))
 
-            # If OSRM returned fewer than 3 alternatives, supplement with synthesized highway alternatives
-            if len(routes) < 3:
-                simulated = generate_simulated_alternatives(
-                    start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
-                )
-                for sim in simulated:
-                    if len(routes) >= 3:
-                        break
-                    sim["id"] = f"route_option_{len(routes) + 1}"
-                    sim["summary_title"] = f"Route {len(routes) + 1} ({sim['name']})"
-                    routes.append(sim)
+    corridors = [
+        {
+            "name": "OSRM Highway Route 1",
+            "coords_str": f"{start_lon},{start_lat};{end_lon},{end_lat}",
+        },
+        {
+            "name": "OSRM Highway Route 2",
+            "coords_str": (
+                f"{start_lon},{start_lat};"
+                f"{round(mid_lon + perp_dx * offset_dist, 5)},{round(mid_lat + perp_dy * offset_dist, 5)};"
+                f"{end_lon},{end_lat}"
+            ),
+        },
+        {
+            "name": "OSRM Highway Route 3",
+            "coords_str": (
+                f"{start_lon},{start_lat};"
+                f"{round(mid_lon - perp_dx * offset_dist, 5)},{round(mid_lat - perp_dy * offset_dist, 5)};"
+                f"{end_lon},{end_lat}"
+            ),
+        },
+    ]
 
-            return routes[:3]
-    except Exception as e:
-        logger.warning(f"OSRM routing failed: {e}")
+    routes = []
+    for idx, c in enumerate(corridors):
+        url = f"https://router.project-osrm.org/route/v1/driving/{c['coords_str']}?overview=full&geometries=geojson"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                raw_routes = data.get("routes", [])
+                if raw_routes:
+                    r = raw_routes[0]
+                    dist_meters = r.get("distance", 0.0)
+                    dur_seconds = r.get("duration", 0.0)
+                    coords = r.get("geometry", {}).get("coordinates", [])
+
+                    dist_miles = dist_meters * METERS_TO_MILES
+                    checkpoints = interpolate_polyline_checkpoints(
+                        coordinates=coords,
+                        step_miles=step_miles,
+                        total_distance_miles=dist_miles,
+                        total_duration_seconds=dur_seconds,
+                        departure_time=departure_time,
+                    )
+
+                    routes.append({
+                        "id": f"route_option_{idx + 1}",
+                        "name": c["name"],
+                        "summary_title": f"Route {idx + 1} (OSRM)",
+                        "distance_miles": round(dist_miles, 1),
+                        "duration_hours": round(dur_seconds / 3600.0, 1),
+                        "duration_seconds": round(dur_seconds, 0),
+                        "coordinates": coords,
+                        "checkpoints": checkpoints,
+                        "step_miles": step_miles,
+                    })
+        except Exception as e:
+            logger.warning(f"OSRM corridor {idx + 1} routing failed: {e}")
+
+    if len(routes) == 3:
+        return routes
+
+    if routes:
+        simulated = generate_simulated_alternatives(
+            start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
+        )
+        for sim in simulated:
+            if len(routes) >= 3:
+                break
+            sim["id"] = f"route_option_{len(routes) + 1}"
+            sim["summary_title"] = f"Route {len(routes) + 1} ({sim['name']})"
+            routes.append(sim)
+        return routes[:3]
 
     return None
 
@@ -816,16 +859,18 @@ def get_three_alternative_routes(
     dest_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Orchestrates fetching 3 distinct alternative routes:
-    1. Try ORS if api_key provided or in settings
-    2. Try OSRM
-    3. Fallback to realistic simulated interstate corridors
+    Orchestrates fetching 3 distinct alternative routes with 100% parity between
+    local and cloud deployments:
+    1. If explicit ors_api_key passed in request, try ORS first
+    2. Otherwise try public OSRM 3-corridor engine (identical on Local and Render without env keys)
+    3. Fallback to ORS (if ORS_API_KEY in settings)
+    4. Fallback to curved simulated interstate corridors
     """
     routes: Optional[List[Dict[str, Any]]] = None
-    key = ors_api_key or getattr(settings, "ORS_API_KEY", "")
-    if key and key.strip():
+
+    if ors_api_key and ors_api_key.strip():
         try:
-            routes = fetch_ors_routes(key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
+            routes = fetch_ors_routes(ors_api_key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
         except Exception as e:
             logger.warning(f"OpenRouteService failed: {e}")
 
@@ -834,6 +879,14 @@ def get_three_alternative_routes(
             routes = fetch_osrm_routes(start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
         except Exception as e:
             logger.warning(f"OSRM failed: {e}")
+
+    if not routes or len(routes) < 3:
+        key = getattr(settings, "ORS_API_KEY", "")
+        if key and key.strip():
+            try:
+                routes = fetch_ors_routes(key, start_lon, start_lat, end_lon, end_lat, step_miles, departure_time)
+            except Exception as e:
+                logger.warning(f"OpenRouteService fallback failed: {e}")
 
     if not routes or len(routes) < 3:
         routes = generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)

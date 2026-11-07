@@ -54,7 +54,7 @@ class RouteEvaluationView(APIView):
         load_weight_lbs = data["load_weight"]
         step_miles = float(data["step_miles"])
         weather_scenario = data.get("weather_scenario", "live")
-        ors_key = data.get("ors_api_key") or getattr(settings, "ORS_API_KEY", "")
+        ors_key = data.get("ors_api_key") or ""
 
         # 1. Geocode origin and destination
         origin_geo = geocode_address(origin_query)

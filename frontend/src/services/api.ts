@@ -83,11 +83,21 @@ function applySevereStormFallback(data: EvaluationResponse): EvaluationResponse 
       const activeOverrides: string[] = [];
 
       if (rIdx === 0) {
-        // Route 0 (Recommended): Safe bypass corridor with mild/moderate winds
-        wind = Math.round((16.0 + 6.0 * Math.sin(progress * Math.PI)) * 10) / 10;
-        level = wind >= 25 ? "Moderate" : "Low";
-        score = wind >= 25 ? 2 : 1;
-        color = wind >= 25 ? "#ca8a04" : "#16a34a";
+        // Route 0 (Recommended): Safe bypass corridor avoiding Severe/No Travel, skirts outer crosswind band (42%-54%)
+        if (progress >= 0.42 && progress <= 0.54) {
+          const peak = Math.sin(((progress - 0.42) / 0.12) * Math.PI);
+          wind = Math.round((35.5 + 3.5 * peak) * 10) / 10;
+          rain = 0.2;
+          level = "High";
+          score = 3;
+          color = "#f97316";
+          activeOverrides.push(`Outer crosswind fringe: ${wind} mph wind`);
+        } else {
+          wind = Math.round((16.0 + 9.5 * Math.sin(progress * Math.PI)) * 10) / 10;
+          level = wind >= 25 ? "Moderate" : "Low";
+          score = wind >= 25 ? 2 : 1;
+          color = wind >= 25 ? "#ca8a04" : "#16a34a";
+        }
       } else if (rIdx === 1) {
         // Route 1 (Arterial): Traverses severe storm front between 20% and 80%
         const inStorm = progress >= 0.20 && progress <= 0.80;
@@ -139,11 +149,11 @@ function applySevereStormFallback(data: EvaluationResponse): EvaluationResponse 
     });
 
     const step = route.step_miles || 25;
-    const severeMiles = Math.round(Math.min(severeCount * step, route.distance_miles));
-    const highMiles = Math.round(Math.min(highCount * step, route.distance_miles));
     const noTravelMiles = Math.round(Math.min(noTravelCount * step, route.distance_miles));
+    const severeMiles = Math.round(Math.min((severeCount + noTravelCount) * step, route.distance_miles));
+    const highMiles = Math.round(Math.min(highCount * step, route.distance_miles));
     const modMiles = Math.round(Math.min(modCount * step, route.distance_miles));
-    const lowMiles = Math.max(0, Math.round(route.distance_miles - (severeMiles + highMiles + noTravelMiles + modMiles)));
+    const lowMiles = Math.max(0, Math.round(route.distance_miles - (severeMiles + highMiles + modMiles)));
     const avgRisk = Math.round((totalScore / Math.max(1, totalCps)) * 100) / 100;
 
     return {

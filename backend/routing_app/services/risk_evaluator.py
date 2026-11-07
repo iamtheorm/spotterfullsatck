@@ -224,11 +224,13 @@ def aggregate_route_metrics(
 
     # When checkpoints are sampled every step_miles, each checkpoint represents ~step_miles of the route.
     # Cap total estimated miles so it doesn't exceed total_distance_miles.
-    severe_miles = round(min(severe_count * step_miles, total_distance_miles), 1)
-    high_miles = round(min(high_count * step_miles, total_distance_miles), 1)
+    # Note: severe_miles includes both Severe and No Travel checkpoints so the 3-tier summary
+    # (Severe / High / Low-Mod) accounts for 100% of hazardous mileage.
     no_travel_miles = round(min(no_travel_count * step_miles, total_distance_miles), 1)
+    severe_miles = round(min((severe_count + no_travel_count) * step_miles, total_distance_miles), 1)
+    high_miles = round(min(high_count * step_miles, total_distance_miles), 1)
     moderate_miles = round(min(moderate_count * step_miles, total_distance_miles), 1)
-    low_miles = round(max(0.0, total_distance_miles - (severe_miles + high_miles + no_travel_miles + moderate_miles)), 1)
+    low_miles = round(max(0.0, total_distance_miles - (severe_miles + high_miles + moderate_miles)), 1)
 
     max_score = max(cp.get("final_score", 1) for cp in checkpoints)
     score_to_level = {v: k for k, v in NUMERIC_SCORES.items()}

@@ -142,8 +142,10 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     activeWeightUnit,
   ]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const triggerEvaluate = (
+    overrideScenario?: "live" | "severe_storm",
+    overrideStepMiles?: number
+  ) => {
     if (!origin.trim() || !destination.trim()) return;
 
     const rawNum = parseFloat(loadWeight) || (activeWeightUnit === "lbs" ? 34000 : 15400);
@@ -155,9 +157,28 @@ export const InputPanel: React.FC<InputPanelProps> = ({
       destination: destination.trim(),
       departure_time: depIso,
       load_weight: parsedWeightLbs,
-      step_miles: stepMiles,
-      weather_scenario: weatherScenario,
+      step_miles: overrideStepMiles ?? stepMiles,
+      weather_scenario: overrideScenario ?? weatherScenario,
     });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    triggerEvaluate();
+  };
+
+  const handleWeatherScenarioSelect = (nextScenario: "live" | "severe_storm") => {
+    setWeatherScenario(nextScenario);
+    if (origin.trim() && destination.trim()) {
+      triggerEvaluate(nextScenario, stepMiles);
+    }
+  };
+
+  const handleStepMilesSelect = (nextMiles: number) => {
+    setStepMiles(nextMiles);
+    if (hasEvaluatedRoutes && origin.trim() && destination.trim()) {
+      triggerEvaluate(weatherScenario, nextMiles);
+    }
   };
 
   const handleSwap = () => {
@@ -388,7 +409,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
                   <button
                     key={opt.miles}
                     type="button"
-                    onClick={() => setStepMiles(opt.miles)}
+                    onClick={() => handleStepMilesSelect(opt.miles)}
                     className={`py-1.5 px-2 rounded-xl text-xs font-bold transition ${
                       isSelected
                         ? "bg-[#101c38] text-white shadow-xs"
@@ -418,7 +439,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setWeatherScenario("live")}
+                onClick={() => handleWeatherScenarioSelect("live")}
                 className={`py-1.5 px-2 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
                   weatherScenario === "live"
                     ? "bg-[#101c38] text-white shadow-xs"
@@ -432,7 +453,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
 
               <button
                 type="button"
-                onClick={() => setWeatherScenario("severe_storm")}
+                onClick={() => handleWeatherScenarioSelect("severe_storm")}
                 className={`py-1.5 px-2 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
                   weatherScenario === "severe_storm"
                     ? "bg-red-600 text-white shadow-xs"
