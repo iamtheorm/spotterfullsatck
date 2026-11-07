@@ -71,3 +71,4 @@ export function playTruckAirHorn(): void {
     console.warn("AudioContext air horn playback not allowed by browser policy yet:", err);
   }
 }
+

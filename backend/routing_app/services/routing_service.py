@@ -21,6 +21,105 @@ METERS_TO_MILES = 0.000621371
 MILES_TO_METERS = 1609.34
 
 
+# Fallback dictionary of common worldwide transport and freight hubs
+KNOWN_HUBS = {
+    # India & South Asia Logistics Corridors
+    "delhi": (28.6139, 77.2090, "Delhi, India"),
+    "new delhi": (28.6139, 77.2090, "New Delhi, India"),
+    "kanpur": (26.4499, 80.3319, "Kanpur, Uttar Pradesh, India"),
+    "lucknow": (26.8467, 80.9462, "Lucknow, Uttar Pradesh, India"),
+    "agra": (27.1767, 78.0081, "Agra, Uttar Pradesh, India"),
+    "varanasi": (25.3176, 82.9739, "Varanasi, Uttar Pradesh, India"),
+    "benares": (25.3176, 82.9739, "Varanasi, Uttar Pradesh, India"),
+    "prayagraj": (25.4358, 81.8463, "Prayagraj, Uttar Pradesh, India"),
+    "allahabad": (25.4358, 81.8463, "Prayagraj, Uttar Pradesh, India"),
+    "noida": (28.5355, 77.3910, "Noida, Uttar Pradesh, India"),
+    "greater noida": (28.4744, 77.5040, "Greater Noida, Uttar Pradesh, India"),
+    "ghaziabad": (28.6692, 77.4538, "Ghaziabad, Uttar Pradesh, India"),
+    "gurgaon": (28.4595, 77.0266, "Gurugram, Haryana, India"),
+    "gurugram": (28.4595, 77.0266, "Gurugram, Haryana, India"),
+    "faridabad": (28.4089, 77.3178, "Faridabad, Haryana, India"),
+    "jaipur": (26.9124, 75.7873, "Jaipur, Rajasthan, India"),
+    "chandigarh": (30.7333, 76.7794, "Chandigarh, India"),
+    "ludhiana": (30.9010, 75.8573, "Ludhiana, Punjab, India"),
+    "amritsar": (31.6340, 74.8723, "Amritsar, Punjab, India"),
+    "mumbai": (19.0760, 72.8777, "Mumbai, Maharashtra, India"),
+    "pune": (18.5204, 73.8567, "Pune, Maharashtra, India"),
+    "nagpur": (21.1458, 79.0882, "Nagpur, Maharashtra, India"),
+    "ahmedabad": (23.0225, 72.5714, "Ahmedabad, Gujarat, India"),
+    "surat": (21.1702, 72.8311, "Surat, Gujarat, India"),
+    "vadodara": (22.3072, 73.1812, "Vadodara, Gujarat, India"),
+    "bengaluru": (12.9716, 77.5946, "Bengaluru, Karnataka, India"),
+    "bangalore": (12.9716, 77.5946, "Bengaluru, Karnataka, India"),
+    "hyderabad": (17.3850, 78.4867, "Hyderabad, Telangana, India"),
+    "chennai": (13.0827, 80.2707, "Chennai, Tamil Nadu, India"),
+    "kolkata": (22.5726, 88.3639, "Kolkata, West Bengal, India"),
+    "patna": (25.5941, 85.1376, "Patna, Bihar, India"),
+    "bhopal": (23.2599, 77.4126, "Bhopal, Madhya Pradesh, India"),
+    "indore": (22.7196, 75.8577, "Indore, Madhya Pradesh, India"),
+    "kochi": (9.9312, 76.2673, "Kochi, Kerala, India"),
+    "cochin": (9.9312, 76.2673, "Kochi, Kerala, India"),
+    "visakhapatnam": (17.6868, 83.2185, "Visakhapatnam, Andhra Pradesh, India"),
+    "guwahati": (26.1445, 91.7362, "Guwahati, Assam, India"),
+
+    # North America
+    "chicago": (41.8781, -87.6298, "Chicago, IL, USA"),
+    "dallas": (32.7767, -96.7970, "Dallas, TX, USA"),
+    "denver": (39.7392, -104.9903, "Denver, CO, USA"),
+    "atlanta": (33.7490, -84.3880, "Atlanta, GA, USA"),
+    "seattle": (47.6062, -122.3321, "Seattle, WA, USA"),
+    "los angeles": (34.0522, -118.2437, "Los Angeles, CA, USA"),
+    "new york": (40.7128, -74.0060, "New York, NY, USA"),
+    "nyc": (40.7128, -74.0060, "New York, NY, USA"),
+    "boston": (42.3601, -71.0589, "Boston, MA, USA"),
+    "miami": (25.7617, -80.1918, "Miami, FL, USA"),
+    "houston": (29.7604, -95.3698, "Houston, TX, USA"),
+    "phoenix": (33.4484, -112.0740, "Phoenix, AZ, USA"),
+    "philadelphia": (39.9526, -75.1652, "Philadelphia, PA, USA"),
+    "san antonio": (29.4241, -98.4936, "San Antonio, TX, USA"),
+    "san diego": (32.7157, -117.1611, "San Diego, CA, USA"),
+    "austin": (30.2672, -97.7431, "Austin, TX, USA"),
+    "san francisco": (37.7749, -122.4194, "San Francisco, CA, USA"),
+    "indianapolis": (39.7684, -86.1581, "Indianapolis, IN, USA"),
+    "columbus": (39.9612, -82.9988, "Columbus, OH, USA"),
+    "charlotte": (35.2271, -80.8431, "Charlotte, NC, USA"),
+    "detroit": (42.3314, -83.0458, "Detroit, MI, USA"),
+    "memphis": (35.1495, -90.0490, "Memphis, TN, USA"),
+    "nashville": (36.1627, -86.7816, "Nashville, TN, USA"),
+    "st. louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
+    "st louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
+    "kansas city": (39.0997, -94.5786, "Kansas City, MO, USA"),
+    "minneapolis": (44.9778, -93.2650, "Minneapolis, MN, USA"),
+    "cleveland": (41.4993, -81.6944, "Cleveland, OH, USA"),
+    "pittsburgh": (40.4406, -79.9959, "Pittsburgh, PA, USA"),
+    "tampa": (27.9506, -82.4572, "Tampa, FL, USA"),
+    "orlando": (28.5383, -81.3792, "Orlando, FL, USA"),
+    "las vegas": (36.1699, -115.1398, "Las Vegas, NV, USA"),
+    "salt lake city": (40.7608, -111.8910, "Salt Lake City, UT, USA"),
+    "portland": (45.5152, -122.6784, "Portland, OR, USA"),
+    "toronto": (43.6532, -79.3832, "Toronto, ON, Canada"),
+    "montreal": (45.5017, -73.5673, "Montreal, QC, Canada"),
+    "vancouver": (49.2827, -123.1207, "Vancouver, BC, Canada"),
+
+    # Europe
+    "london": (51.5074, -0.1278, "London, UK"),
+    "paris": (48.8566, 2.3522, "Paris, France"),
+    "berlin": (52.5200, 13.4050, "Berlin, Germany"),
+    "munich": (48.1374, 11.5755, "Munich, Germany"),
+    "frankfurt": (50.1109, 8.6821, "Frankfurt, Germany"),
+    "amsterdam": (52.3676, 4.9041, "Amsterdam, Netherlands"),
+    "madrid": (40.4168, -3.7038, "Madrid, Spain"),
+    "rome": (41.9028, 12.4964, "Rome, Italy"),
+
+    # Asia / Pacific
+    "tokyo": (35.6762, 139.6503, "Tokyo, Japan"),
+    "sydney": (-33.8688, 151.2093, "Sydney, Australia"),
+    "melbourne": (-37.8136, 144.9631, "Melbourne, Australia"),
+    "singapore": (1.3521, 103.8198, "Singapore"),
+    "dubai": (25.2048, 55.2708, "Dubai, UAE"),
+}
+
+
 def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
     """
     Geocodes an address or parses coordinates "lat,lon" anywhere worldwide.
@@ -95,110 +194,153 @@ def geocode_address(query: str) -> Optional[Tuple[float, float, str]]:
             logger.warning(f"Nominatim geocoding failed for '{q}': {e}")
 
     # 3. Fallback dictionary of common worldwide transport and freight hubs
-    KNOWN_HUBS = {
-        # India & South Asia Logistics Corridors
-        "delhi": (28.6139, 77.2090, "Delhi, India"),
-        "new delhi": (28.6139, 77.2090, "New Delhi, India"),
-        "kanpur": (26.4499, 80.3319, "Kanpur, Uttar Pradesh, India"),
-        "lucknow": (26.8467, 80.9462, "Lucknow, Uttar Pradesh, India"),
-        "agra": (27.1767, 78.0081, "Agra, Uttar Pradesh, India"),
-        "varanasi": (25.3176, 82.9739, "Varanasi, Uttar Pradesh, India"),
-        "benares": (25.3176, 82.9739, "Varanasi, Uttar Pradesh, India"),
-        "prayagraj": (25.4358, 81.8463, "Prayagraj, Uttar Pradesh, India"),
-        "allahabad": (25.4358, 81.8463, "Prayagraj, Uttar Pradesh, India"),
-        "noida": (28.5355, 77.3910, "Noida, Uttar Pradesh, India"),
-        "greater noida": (28.4744, 77.5040, "Greater Noida, Uttar Pradesh, India"),
-        "ghaziabad": (28.6692, 77.4538, "Ghaziabad, Uttar Pradesh, India"),
-        "gurgaon": (28.4595, 77.0266, "Gurugram, Haryana, India"),
-        "gurugram": (28.4595, 77.0266, "Gurugram, Haryana, India"),
-        "faridabad": (28.4089, 77.3178, "Faridabad, Haryana, India"),
-        "jaipur": (26.9124, 75.7873, "Jaipur, Rajasthan, India"),
-        "chandigarh": (30.7333, 76.7794, "Chandigarh, India"),
-        "ludhiana": (30.9010, 75.8573, "Ludhiana, Punjab, India"),
-        "amritsar": (31.6340, 74.8723, "Amritsar, Punjab, India"),
-        "mumbai": (19.0760, 72.8777, "Mumbai, Maharashtra, India"),
-        "pune": (18.5204, 73.8567, "Pune, Maharashtra, India"),
-        "nagpur": (21.1458, 79.0882, "Nagpur, Maharashtra, India"),
-        "ahmedabad": (23.0225, 72.5714, "Ahmedabad, Gujarat, India"),
-        "surat": (21.1702, 72.8311, "Surat, Gujarat, India"),
-        "vadodara": (22.3072, 73.1812, "Vadodara, Gujarat, India"),
-        "bengaluru": (12.9716, 77.5946, "Bengaluru, Karnataka, India"),
-        "bangalore": (12.9716, 77.5946, "Bengaluru, Karnataka, India"),
-        "hyderabad": (17.3850, 78.4867, "Hyderabad, Telangana, India"),
-        "chennai": (13.0827, 80.2707, "Chennai, Tamil Nadu, India"),
-        "kolkata": (22.5726, 88.3639, "Kolkata, West Bengal, India"),
-        "patna": (25.5941, 85.1376, "Patna, Bihar, India"),
-        "bhopal": (23.2599, 77.4126, "Bhopal, Madhya Pradesh, India"),
-        "indore": (22.7196, 75.8577, "Indore, Madhya Pradesh, India"),
-        "kochi": (9.9312, 76.2673, "Kochi, Kerala, India"),
-        "cochin": (9.9312, 76.2673, "Kochi, Kerala, India"),
-        "visakhapatnam": (17.6868, 83.2185, "Visakhapatnam, Andhra Pradesh, India"),
-        "guwahati": (26.1445, 91.7362, "Guwahati, Assam, India"),
-
-        # North America
-        "chicago": (41.8781, -87.6298, "Chicago, IL, USA"),
-        "dallas": (32.7767, -96.7970, "Dallas, TX, USA"),
-        "denver": (39.7392, -104.9903, "Denver, CO, USA"),
-        "atlanta": (33.7490, -84.3880, "Atlanta, GA, USA"),
-        "seattle": (47.6062, -122.3321, "Seattle, WA, USA"),
-        "los angeles": (34.0522, -118.2437, "Los Angeles, CA, USA"),
-        "new york": (40.7128, -74.0060, "New York, NY, USA"),
-        "nyc": (40.7128, -74.0060, "New York, NY, USA"),
-        "boston": (42.3601, -71.0589, "Boston, MA, USA"),
-        "miami": (25.7617, -80.1918, "Miami, FL, USA"),
-        "houston": (29.7604, -95.3698, "Houston, TX, USA"),
-        "phoenix": (33.4484, -112.0740, "Phoenix, AZ, USA"),
-        "philadelphia": (39.9526, -75.1652, "Philadelphia, PA, USA"),
-        "san antonio": (29.4241, -98.4936, "San Antonio, TX, USA"),
-        "san diego": (32.7157, -117.1611, "San Diego, CA, USA"),
-        "austin": (30.2672, -97.7431, "Austin, TX, USA"),
-        "san francisco": (37.7749, -122.4194, "San Francisco, CA, USA"),
-        "indianapolis": (39.7684, -86.1581, "Indianapolis, IN, USA"),
-        "columbus": (39.9612, -82.9988, "Columbus, OH, USA"),
-        "charlotte": (35.2271, -80.8431, "Charlotte, NC, USA"),
-        "detroit": (42.3314, -83.0458, "Detroit, MI, USA"),
-        "memphis": (35.1495, -90.0490, "Memphis, TN, USA"),
-        "nashville": (36.1627, -86.7816, "Nashville, TN, USA"),
-        "st. louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
-        "st louis": (38.6270, -90.1994, "St. Louis, MO, USA"),
-        "kansas city": (39.0997, -94.5786, "Kansas City, MO, USA"),
-        "minneapolis": (44.9778, -93.2650, "Minneapolis, MN, USA"),
-        "cleveland": (41.4993, -81.6944, "Cleveland, OH, USA"),
-        "pittsburgh": (40.4406, -79.9959, "Pittsburgh, PA, USA"),
-        "tampa": (27.9506, -82.4572, "Tampa, FL, USA"),
-        "orlando": (28.5383, -81.3792, "Orlando, FL, USA"),
-        "las vegas": (36.1699, -115.1398, "Las Vegas, NV, USA"),
-        "salt lake city": (40.7608, -111.8910, "Salt Lake City, UT, USA"),
-        "portland": (45.5152, -122.6784, "Portland, OR, USA"),
-        "toronto": (43.6532, -79.3832, "Toronto, ON, Canada"),
-        "montreal": (45.5017, -73.5673, "Montreal, QC, Canada"),
-        "vancouver": (49.2827, -123.1207, "Vancouver, BC, Canada"),
-
-        # Europe
-        "london": (51.5074, -0.1278, "London, UK"),
-        "paris": (48.8566, 2.3522, "Paris, France"),
-        "berlin": (52.5200, 13.4050, "Berlin, Germany"),
-        "munich": (48.1374, 11.5755, "Munich, Germany"),
-        "frankfurt": (50.1109, 8.6821, "Frankfurt, Germany"),
-        "amsterdam": (52.3676, 4.9041, "Amsterdam, Netherlands"),
-        "madrid": (40.4168, -3.7038, "Madrid, Spain"),
-        "rome": (41.9028, 12.4964, "Rome, Italy"),
-
-        # Asia / Pacific
-        "tokyo": (35.6762, 139.6503, "Tokyo, Japan"),
-        "sydney": (-33.8688, 151.2093, "Sydney, Australia"),
-        "melbourne": (-37.8136, 144.9631, "Melbourne, Australia"),
-        "singapore": (1.3521, 103.8198, "Singapore"),
-        "dubai": (25.2048, 55.2708, "Dubai, UAE"),
-    }
     lowered = cleaned.lower()
     for k, v in KNOWN_HUBS.items():
         if k in lowered:
-            return v
+            return v[0], v[1], v[2]
 
     return None
 
-    return None
+
+def search_locations(query: str, country_code: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Asynchronous autocomplete search for cities worldwide, filtered optionally by country code.
+    Returns list of dicts with:
+      - city
+      - state
+      - country
+      - country_code
+      - label ("City, State")
+      - display_name ("City, State, Country")
+      - lat, lon
+    """
+    if not query or len(query.strip()) < 1:
+        return []
+
+    cleaned = query.strip().lower()
+    cc = country_code.strip().upper() if country_code and country_code.lower() not in ("all", "") else None
+
+    results: List[Dict[str, Any]] = []
+    seen = set()
+
+    # 1. Match from KNOWN_HUBS for instant sub-millisecond local response
+    for key, v in KNOWN_HUBS.items():
+        lat, lon, display = v[0], v[1], v[2]
+        tokens = [t.strip() for t in display.split(",")]
+        city = tokens[0]
+        state = tokens[1] if len(tokens) >= 3 else ""
+        country = tokens[-1] if len(tokens) >= 2 else ""
+
+        # Determine country code
+        ccode = ""
+        disp_upper = display.upper()
+        if "USA" in disp_upper or "UNITED STATES" in disp_upper or any(st in disp_upper for st in [" IL", " TX", " CO", " GA", " WA", " CA", " NY", " MA", " FL", " MO"]):
+            ccode = "US"
+        elif "INDIA" in disp_upper:
+            ccode = "IN"
+        elif "CANADA" in disp_upper:
+            ccode = "CA"
+        elif "UK" in disp_upper or "UNITED KINGDOM" in disp_upper:
+            ccode = "GB"
+        elif "GERMANY" in disp_upper:
+            ccode = "DE"
+        elif "FRANCE" in disp_upper:
+            ccode = "FR"
+        elif "AUSTRALIA" in disp_upper:
+            ccode = "AU"
+
+        if cc and ccode and ccode != cc:
+            continue
+
+        if cleaned in key or cleaned in city.lower() or (state and cleaned in state.lower()) or (country and cleaned in country.lower()):
+            label = f"{city}, {state}" if state else city
+            item_key = (city.lower(), state.lower(), ccode)
+            if item_key not in seen:
+                seen.add(item_key)
+                results.append({
+                    "city": city,
+                    "state": state,
+                    "country": country,
+                    "country_code": ccode,
+                    "label": label,
+                    "display_name": display,
+                    "lat": lat,
+                    "lon": lon,
+                })
+
+    # 2. Query Open-Meteo Geocoding API if more candidates needed
+    if len(results) < 8:
+        try:
+            params = {"name": query.strip(), "count": 10, "language": "en", "format": "json"}
+            resp = requests.get(
+                "https://geocoding-api.open-meteo.com/v1/search",
+                params=params,
+                timeout=4,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("results", [])
+                for item in data:
+                    item_cc = item.get("country_code", "").upper()
+                    if cc and item_cc != cc:
+                        continue
+                    city = item.get("name", "")
+                    state = item.get("admin1", "")
+                    country = item.get("country", "")
+                    lat = float(item["latitude"])
+                    lon = float(item["longitude"])
+                    label = f"{city}, {state}" if state else city
+                    display_name = f"{city}, {state}, {country}".replace(", ,", ",").strip(", ")
+
+                    item_key = (city.lower(), state.lower(), item_cc)
+                    if item_key not in seen:
+                        seen.add(item_key)
+                        results.append({
+                            "city": city,
+                            "state": state,
+                            "country": country,
+                            "country_code": item_cc,
+                            "label": label,
+                            "display_name": display_name,
+                            "lat": lat,
+                            "lon": lon,
+                        })
+        except Exception as e:
+            logger.debug(f"Open-Meteo search error: {e}")
+
+    # 3. Query Nominatim if still empty
+    if len(results) == 0:
+        try:
+            headers = {"User-Agent": "WeatherRoutingApp/1.0"}
+            nom_params: Dict[str, Any] = {"q": query.strip(), "format": "json", "limit": 6}
+            if cc:
+                nom_params["countrycodes"] = cc.lower()
+            nom_resp = requests.get(
+                "https://nominatim.openstreetmap.org/search",
+                params=nom_params,
+                headers=headers,
+                timeout=4,
+            )
+            if nom_resp.status_code == 200:
+                for item in nom_resp.json():
+                    disp = item.get("display_name", "")
+                    tokens = [t.strip() for t in disp.split(",")]
+                    city = tokens[0] if len(tokens) > 0 else query
+                    state = tokens[1] if len(tokens) > 1 else ""
+                    country = tokens[-1] if len(tokens) > 2 else ""
+                    results.append({
+                        "city": city,
+                        "state": state,
+                        "country": country,
+                        "country_code": cc or "",
+                        "label": f"{city}, {state}" if state else city,
+                        "display_name": disp,
+                        "lat": float(item["lat"]),
+                        "lon": float(item["lon"]),
+                    })
+        except Exception as e:
+            logger.debug(f"Nominatim search error: {e}")
+
+    return results[:8]
 
 
 def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

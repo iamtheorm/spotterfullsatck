@@ -15,6 +15,7 @@ from routing_app.serializers import (
 )
 from routing_app.services.routing_service import (
     geocode_address,
+    search_locations,
     get_three_alternative_routes,
 )
 from routing_app.services.weather_service import fetch_weather_for_checkpoints
@@ -207,19 +208,30 @@ class CorridorHeatmapView(APIView):
 
 
 class GeocodeView(APIView):
-    """Geocodes an address query."""
+    """Geocodes an address query or returns autocomplete location suggestions."""
 
     def get(self, request):
         query = request.query_params.get("q", "").strip()
+        country = request.query_params.get("country", "").strip()
         if not query:
-            return Response({"error": "Missing 'q' query parameter"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Missing 'q' query parameter", "results": []}, status=status.HTTP_400_BAD_REQUEST)
 
+        matches = search_locations(query, country_code=country if country else None)
         geo = geocode_address(query)
-        if not geo:
-            return Response({"error": f"Address not found: '{query}'"}, status=status.HTTP_404_NOT_FOUND)
 
-        lat, lon, display_name = geo
-        return Response({"lat": lat, "lon": lon, "display_name": display_name})
+        if not matches and not geo:
+            return Response({"error": f"Address not found: '{query}'", "results": []}, status=status.HTTP_404_NOT_FOUND)
+
+        lat = matches[0]["lat"] if matches else (geo[0] if geo else 0.0)
+        lon = matches[0]["lon"] if matches else (geo[1] if geo else 0.0)
+        display_name = matches[0]["display_name"] if matches else (geo[2] if geo else query)
+
+        return Response({
+            "lat": lat,
+            "lon": lon,
+            "display_name": display_name,
+            "results": matches,
+        })
 
 
 class HealthCheckView(APIView):

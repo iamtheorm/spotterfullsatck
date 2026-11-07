@@ -72,6 +72,32 @@ export async function fetchCorridorForecast(
   return resp.json();
 }
 
+export interface LocationSuggestion {
+  city: string;
+  state?: string;
+  country?: string;
+  country_code?: string;
+  label: string;
+  display_name: string;
+  lat: number;
+  lon: number;
+}
+
+export async function searchLocations(
+  query: string,
+  country?: string
+): Promise<LocationSuggestion[]> {
+  if (!query || query.trim().length === 0) return [];
+  const params = new URLSearchParams({ q: query.trim() });
+  if (country && country !== "ALL") {
+    params.set("country", country);
+  }
+  const resp = await fetch(`${API_BASE}/geocode/?${params.toString()}`);
+  if (!resp.ok) return [];
+  const data = await resp.json().catch(() => ({}));
+  return data.results || [];
+}
+
 export async function healthCheck(): Promise<boolean> {
   try {
     const resp = await fetch(`${API_BASE}/health/`);
