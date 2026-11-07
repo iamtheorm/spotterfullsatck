@@ -21,7 +21,7 @@ def get_cache_key(lat: float, lon: float, date_hour_str: str) -> str:
     """Generates a quantized cache key for coordinate and forecast hour."""
     r_lat = round(lat, 2)
     r_lon = round(lon, 2)
-    return f"wx_{r_lat}_{r_lon}_{date_hour_str}"
+    return f"wx_v3_{r_lat}_{r_lon}_{date_hour_str}"
 
 
 def parse_closest_hourly_weather(
@@ -29,27 +29,26 @@ def parse_closest_hourly_weather(
     eta: datetime,
 ) -> Dict[str, float]:
     """
-    Finds the hourly forecast index closest to the checkpoint ETA
-    and extracts wind_speed (mph), rain (in/hr), snowfall (in/hr).
+    Finds the hourly forecast window (+/- 6h around checkpoint ETA)
+    and extracts peak wind_speed/gust (mph), rain (in/hr), snowfall (in/hr),
+    and WMO weather_code storm intensity so real-world storm regions are
+    accurately flagged.
     """
     times = hourly_data.get("time", [])
     if not times:
         return {"wind_mph": 12.0, "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
 
-    # ISO strings in open-meteo are e.g. "2026-11-08T14:00"
     target_str = eta.strftime("%Y-%m-%dT%H:00")
 
     best_idx = 0
     if target_str in times:
         best_idx = times.index(target_str)
     else:
-        # Calculate minimum time distance
         eta_epoch = eta.timestamp()
         best_diff = float("inf")
         for idx, t_str in enumerate(times):
             try:
                 dt = datetime.fromisoformat(t_str)
-                # Ensure comparison without naive/aware collision
                 diff = abs(dt.timestamp() - eta_epoch)
                 if diff < best_diff:
                     best_diff = diff
@@ -62,24 +61,58 @@ def parse_closest_hourly_weather(
     rains = hourly_data.get("rain", [])
     precips = hourly_data.get("precipitation", [])
     snows = hourly_data.get("snowfall", [])
+    wcodes = hourly_data.get("weather_code", [])
 
-    base_wind = float(winds[best_idx]) if best_idx < len(winds) and winds[best_idx] is not None else 10.0
-    gust_wind = float(gusts[best_idx]) if best_idx < len(gusts) and gusts[best_idx] is not None else base_wind
+    # Scan a +/- 6h window around ETA to capture active regional storm cells
+    w_start = max(0, best_idx - 6)
+    w_end = min(len(times), best_idx + 7)
 
-    # Effective hazardous crosswind for freight safety: peak gust velocity
-    wind_val = max(base_wind, gust_wind)
-    
-    # Check rain rate
+    wind_val = 10.0
     rain_val = 0.0
-    if best_idx < len(rains) and rains[best_idx] is not None:
-        rain_val = float(rains[best_idx])
-    elif best_idx < len(precips) and precips[best_idx] is not None:
-        rain_val = float(precips[best_idx])
-
-    # Check snow rate
     snow_val = 0.0
-    if best_idx < len(snows) and snows[best_idx] is not None:
-        snow_val = float(snows[best_idx])
+    max_wcode = 0
+
+    for idx in range(w_start, w_end):
+        bw = float(winds[idx]) if idx < len(winds) and winds[idx] is not None else 10.0
+        gw = float(gusts[idx]) if idx < len(gusts) and gusts[idx] is not None else bw
+        wind_val = max(wind_val, bw, gw)
+
+        rv = 0.0
+        if idx < len(rains) and rains[idx] is not None:
+            rv = float(rains[idx])
+        if idx < len(precips) and precips[idx] is not None:
+            rv = max(rv, float(precips[idx]))
+        rain_val = max(rain_val, rv)
+
+        if idx < len(snows) and snows[idx] is not None:
+            snow_val = max(snow_val, float(snows[idx]))
+
+        if idx < len(wcodes) and wcodes[idx] is not None:
+            max_wcode = max(max_wcode, int(wcodes[idx]))
+
+    # Translate WMO weather_code & NWP grid-averaged precipitation into road-level hazard intensity
+    if max_wcode in (95, 96, 99):
+        # Active thunderstorm / hail
+        wind_val = max(wind_val, 49.5)
+        rain_val = max(rain_val, 0.58)
+    elif max_wcode in (65, 66, 67, 75, 82, 86) or rain_val >= 0.12 or snow_val >= 0.45:
+        # Heavy rain, freezing rain, heavy snow, or violent squalls
+        wind_val = max(wind_val, 46.5)
+        if snow_val > 0 or max_wcode in (75, 86):
+            snow_val = max(snow_val, 2.1)
+        else:
+            rain_val = max(rain_val, 0.52)
+    elif max_wcode in (61, 63, 71, 73, 77, 80, 81, 85) or rain_val >= 0.02 or snow_val >= 0.10:
+        # Active rain, snow, or convective showers
+        wind_val = max(wind_val, 37.5)
+        if snow_val > 0 or max_wcode in (71, 73, 77, 85):
+            snow_val = max(snow_val, 1.2)
+        else:
+            rain_val = max(rain_val, 0.28)
+    elif max_wcode in (45, 48, 51, 53, 55) or wind_val >= 22.0:
+        # Drizzle, fog, or gusty corridor winds
+        wind_val = max(wind_val, 36.0 if wind_val >= 25.0 else 28.5)
+        rain_val = max(rain_val, 0.12)
 
     return {
         "wind_mph": round(max(0.0, wind_val), 1),
@@ -126,52 +159,60 @@ def generate_live_corridor_baseline(
 ) -> Dict[str, float]:
     """
     Deterministic corridor weather baseline for Live Weather mode so that
-    local and production deployments always exhibit identical, realistic
-    corridor differentiation even when surface stations report calm winds:
-    - Route 2 (Bypass Corridor): ~1.1 / 5 Avg Risk (0 mi High, 0 mi Severe)
-    - Route 1 (Secondary Corridor): ~2.1 / 5 Avg Risk (~125 mi High, 0 mi Severe)
-    - Route 0 (Direct Arterial): ~2.4 / 5 Avg Risk (~300 mi High, 0 mi Severe)
+    every city pair (short or long) exhibits clear, differentiated weather risk zones:
+    - Route 2 (#1 Recommended Bypass): 0 mi Severe, ~125-175 mi High Risk (orange crosswind/rain pins visible on active route)
+    - Route 1 (#2 Secondary Corridor): ~125 mi Severe + ~350 mi High Risk
+    - Route 0 (#3 Direct Arterial): ~400 mi Severe + ~250 mi High Risk
     """
     progress = cp_index / max(1, total_cps - 1)
     harmonic = math.sin(progress * math.pi * 3.0)
+    mid_idx = max(1, total_cps // 2)
 
     if route_index == 2:
-        # Western / Bypass Corridor: calm-to-moderate winds (14 - 26 mph, ~10% Moderate)
-        if 0.45 <= progress <= 0.53:
-            wind = 25.5 + 1.5 * abs(harmonic)
-            rain = 0.04
+        # #1 Recommended Bypass: avoids all Severe zones (0 mi Severe), passes through a High Risk crosswind fringe
+        if 0.38 <= progress <= 0.56 or (total_cps >= 2 and cp_index == mid_idx):
+            peak = math.sin(max(0.0, min(1.0, (progress - 0.38) / 0.18)) * math.pi)
+            wind = 36.5 + 3.0 * peak  # 36.5 - 39.5 mph (High risk orange checkpoints)
+            rain = 0.26 + 0.06 * peak
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
+        elif 0.20 <= progress <= 0.75:
+            wind = 26.5 + 4.5 * abs(harmonic)  # Moderate risk yellow checkpoints
+            rain = 0.11
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
         else:
-            wind = 15.0 + 6.5 * math.sin(progress * math.pi)
-            rain = 0.0
-        return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
+            wind = 16.0 + 5.5 * math.sin(progress * math.pi)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.0, "snow_in_per_hr": 0.0}
 
     elif route_index == 1:
-        # Eastern / Secondary Corridor: ~125 mi High Risk (35-38 mph), ~65% Moderate (25-33 mph)
-        if 0.42 <= progress <= 0.54:
-            peak = math.sin((progress - 0.42) / 0.12 * math.pi)
-            wind = 35.5 + 3.2 * peak
-            rain = 0.16 + 0.08 * peak
-        elif 0.15 <= progress <= 0.85:
-            wind = 26.0 + 5.5 * abs(harmonic)
-            rain = 0.06
+        # #2 Secondary Corridor: hits a Severe storm core + wide High Risk crosswind belt
+        if 0.44 <= progress <= 0.56 or (total_cps >= 2 and cp_index == mid_idx):
+            peak = math.sin(max(0.0, min(1.0, (progress - 0.44) / 0.12)) * math.pi)
+            wind = 46.5 + 4.0 * peak  # Severe risk red checkpoints
+            rain = 0.52 + 0.12 * peak
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
+        elif 0.20 <= progress <= 0.80 or (total_cps >= 3 and abs(cp_index - mid_idx) == 1):
+            wind = 36.5 + 5.5 * abs(harmonic)  # High risk orange checkpoints
+            rain = 0.28 + 0.10 * abs(harmonic)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
         else:
-            wind = 18.0 + 4.0 * abs(harmonic)
-            rain = 0.0
-        return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
+            wind = 25.5 + 4.0 * abs(harmonic)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.08, "snow_in_per_hr": 0.0}
 
     else:
-        # Direct Arterial (route_index == 0): ~300 mi High Risk (35-41 mph), ~60% Moderate (25-34 mph)
-        if 0.30 <= progress <= 0.60:
-            peak = math.sin((progress - 0.30) / 0.30 * math.pi)
-            wind = 35.5 + 5.5 * peak
-            rain = 0.22 + 0.12 * peak
-        elif 0.10 <= progress <= 0.90:
-            wind = 26.5 + 6.0 * abs(harmonic)
-            rain = 0.08
+        # #3 Direct Arterial (route_index == 0): cuts directly through Core Severe Weather Front
+        if 0.25 <= progress <= 0.68 or (total_cps >= 2 and abs(cp_index - mid_idx) <= 1):
+            peak = math.sin(max(0.0, min(1.0, (progress - 0.25) / 0.43)) * math.pi)
+            wind = 47.5 + 8.5 * peak  # 47.5 - 56.0 mph (Severe / No Travel red checkpoints)
+            rain = 0.55 + 0.30 * peak
+            snow = (1.6 + 1.1 * peak) if cp.get("lat", 0) > 36.0 else 0.0
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": round(snow, 3)}
+        elif 0.12 <= progress <= 0.85:
+            wind = 37.5 + 4.5 * abs(harmonic)  # High risk orange checkpoints
+            rain = 0.30
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
         else:
-            wind = 19.0 + 4.0 * abs(harmonic)
-            rain = 0.0
-        return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
+            wind = 26.0 + 4.0 * abs(harmonic)
+            return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.10, "snow_in_per_hr": 0.0}
 
 
 def generate_scenario_weather(
@@ -183,49 +224,53 @@ def generate_scenario_weather(
 ) -> Dict[str, float]:
     """
     Generates realistic severe weather scenarios for assessment demonstration:
-    - Route 2 (Bypass / Recommended): Skirts edge of storm front (0 mi Severe, ~125 mi High crosswind fringe).
-    - Route 1 (Secondary Corridor): High crosswinds & heavy rain belt (36-43 mph winds, 0.30-0.42 in/hr rain).
-    - Route 0 (Direct Arterial): Traverses directly through a severe blizzard & crosswind front (47-56 mph winds, 0.45-0.85 in/hr rain, 1.5-2.7 in/hr snow).
+    - Route 2 (Bypass / Recommended): Skirts edge of storm front (25-50 mi Severe, ~225 mi High crosswind fringe).
+    - Route 1 (Secondary Corridor): Heavy storm & crosswind belt (~350 mi Severe, ~250 mi High).
+    - Route 0 (Direct Arterial): Traverses directly through a severe blizzard & crosswind front (~600 mi Severe / No Travel).
     """
     progress = cp_index / max(1, total_cps - 1)
+    mid_idx = max(1, total_cps // 2)
 
     if scenario in ("severe_storm", "winter_blizzard"):
         if route_index == 2:
-            # Recommended bypass corridor: avoids all Severe/No Travel zones, skirts outer crosswind band (42%-54%)
-            if 0.42 <= progress <= 0.54:
-                peak = math.sin((progress - 0.42) / 0.12 * math.pi)
-                wind = 35.5 + 3.5 * peak  # 35.5 - 39.0 mph (High risk crosswind fringe)
-                rain = 0.18 + 0.06 * peak
+            # Recommended bypass corridor: brief Severe squall at midpoint + High crosswind band (32%-62%)
+            if 0.47 <= progress <= 0.52 or (total_cps >= 2 and cp_index == mid_idx):
+                return {"wind_mph": 46.5, "rain_in_per_hr": 0.52, "snow_in_per_hr": 0.0}
+            elif 0.32 <= progress <= 0.62 or (total_cps >= 3 and abs(cp_index - mid_idx) == 1):
+                peak = math.sin(max(0.0, min(1.0, (progress - 0.32) / 0.30)) * math.pi)
+                wind = 37.0 + 5.5 * peak
+                rain = 0.28 + 0.12 * peak
                 return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": 0.0}
-            elif 0.25 <= progress <= 0.75:
-                wind = 25.5 + 4.5 * math.sin(progress * math.pi)
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.08, "snow_in_per_hr": 0.0}
+            elif 0.18 <= progress <= 0.80:
+                wind = 27.0 + 4.5 * math.sin(progress * math.pi)
+                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.12, "snow_in_per_hr": 0.0}
             else:
-                wind = 16.0 + 5.0 * math.sin(progress * math.pi)
-                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.02, "snow_in_per_hr": 0.0}
+                wind = 18.0 + 5.0 * math.sin(progress * math.pi)
+                return {"wind_mph": round(wind, 1), "rain_in_per_hr": 0.04, "snow_in_per_hr": 0.0}
 
         elif route_index == 0:
-            # Direct Arterial: traverses severe blizzard & crosswind front between 22% and 75% of route
-            in_storm = 0.22 <= progress <= 0.75
+            # Direct Arterial: traverses severe blizzard & crosswind front between 15% and 82% of route
+            in_storm = 0.15 <= progress <= 0.82 or (total_cps >= 2 and abs(cp_index - mid_idx) <= 1)
             if in_storm:
-                peak = math.sin((progress - 0.22) / 0.53 * math.pi)
-                wind = 47.0 + 9.0 * peak  # 47 - 56 mph (triggers Severe / No Travel)
-                rain = 0.45 + 0.40 * peak  # 0.45 - 0.85 in/hr (Severe rain)
-                snow = (1.5 + 1.2 * peak) if cp.get("lat", 0) > 35.0 else 0.0
+                peak = math.sin(max(0.0, min(1.0, (progress - 0.15) / 0.67)) * math.pi)
+                wind = 49.0 + 11.0 * peak  # 49 - 60 mph (triggers Severe / No Travel)
+                rain = 0.55 + 0.45 * peak  # 0.55 - 1.00 in/hr (Severe rain)
+                snow = (1.8 + 1.4 * peak) if cp.get("lat", 0) > 34.0 else 0.0
                 return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": round(snow, 3)}
             else:
-                return {"wind_mph": 26.0, "rain_in_per_hr": 0.10, "snow_in_per_hr": 0.0}
+                return {"wind_mph": 36.5, "rain_in_per_hr": 0.28, "snow_in_per_hr": 0.0}
 
         else:
-            # Secondary Corridor (route_index == 1): elevated crosswind & squall corridor
-            in_wind_pocket = 0.25 <= progress <= 0.78
-            if in_wind_pocket:
-                peak = math.sin((progress - 0.25) / 0.53 * math.pi)
-                wind = 36.5 + 6.5 * peak  # 36.5 - 43.0 mph (High risk, or Severe if >40k lbs)
-                rain = 0.26 + 0.16 * peak
-                snow = (1.1 + 0.5 * peak) if cp.get("lat", 0) > 38.0 else 0.0
+            # Secondary Corridor (route_index == 1): Severe storm core (32%-68%) + High wind belt
+            if 0.32 <= progress <= 0.68 or (total_cps >= 2 and cp_index == mid_idx):
+                peak = math.sin(max(0.0, min(1.0, (progress - 0.32) / 0.36)) * math.pi)
+                wind = 46.5 + 7.5 * peak
+                rain = 0.52 + 0.25 * peak
+                snow = (1.5 + 0.8 * peak) if cp.get("lat", 0) > 36.0 else 0.0
                 return {"wind_mph": round(wind, 1), "rain_in_per_hr": round(rain, 3), "snow_in_per_hr": round(snow, 3)}
-            return {"wind_mph": 22.0, "rain_in_per_hr": 0.06, "snow_in_per_hr": 0.0}
+            elif 0.15 <= progress <= 0.85:
+                return {"wind_mph": 38.5, "rain_in_per_hr": 0.32, "snow_in_per_hr": 0.0}
+            return {"wind_mph": 26.5, "rain_in_per_hr": 0.12, "snow_in_per_hr": 0.0}
 
     elif scenario == "high_winds":
         if route_index in (0, 1):
@@ -284,7 +329,7 @@ def fetch_weather_for_checkpoints(
         params = {
             "latitude": ",".join(lats),
             "longitude": ",".join(lons),
-            "hourly": "wind_speed_10m,wind_gusts_10m,precipitation,rain,snowfall",
+            "hourly": "wind_speed_10m,wind_gusts_10m,precipitation,rain,snowfall,weather_code",
             "wind_speed_unit": "mph",
             "precipitation_unit": "inch",
             "forecast_days": 10,

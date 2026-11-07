@@ -126,7 +126,8 @@ export function App() {
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(() => {
     try {
       localStorage.removeItem("spotter_evaluation");
-      const stored = localStorage.getItem("safecorridor_evaluation_v2");
+      localStorage.removeItem("safecorridor_evaluation_v2");
+      const stored = localStorage.getItem("safecorridor_evaluation_v3");
       if (stored) return JSON.parse(stored);
     } catch {}
     return null;
@@ -209,6 +210,7 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v3");
       localStorage.removeItem("safecorridor_evaluation_v2");
       localStorage.removeItem("safecorridor_form_inputs_v2");
       localStorage.removeItem("spotter_evaluation");
@@ -254,7 +256,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("safecorridor_evaluation_v2", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v3", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names
