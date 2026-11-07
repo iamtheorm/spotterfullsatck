@@ -124,7 +124,7 @@ export const BottomRouteComparison: React.FC<BottomRouteComparisonProps> = ({
                     >
                       #{route.rank}
                     </span>
-                    <span className="text-[11px] font-bold text-slate-900 tracking-tight leading-snug line-clamp-1" title={route.name}>
+                    <span className="text-[11px] font-bold text-slate-900 tracking-tight leading-snug line-clamp-2 min-h-[28px]" title={route.name}>
                       {route.name}
                     </span>
                   </div>
