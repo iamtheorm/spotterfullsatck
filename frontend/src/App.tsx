@@ -14,7 +14,7 @@ import {
   DistanceUnit,
   WeightUnit,
 } from "./types";
-import { evaluateRoutes, fetchCorridorForecast, ensureDistinctRouteGeometries } from "./services/api";
+import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
 import { AlertCircle, SlidersHorizontal, ArrowRight, Truck } from "lucide-react";
 
 function detectCountryCode(text?: string): string | null {
@@ -130,10 +130,10 @@ export function App() {
       localStorage.removeItem("safecorridor_evaluation_v3");
       localStorage.removeItem("safecorridor_evaluation_v4");
       localStorage.removeItem("safecorridor_evaluation_v5");
-      const stored = localStorage.getItem("safecorridor_evaluation_v6");
+      localStorage.removeItem("safecorridor_evaluation_v6");
+      const stored = localStorage.getItem("safecorridor_evaluation_v7");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        return ensureDistinctRouteGeometries(parsed);
+        return JSON.parse(stored);
       }
     } catch {}
     return null;
@@ -216,6 +216,7 @@ export function App() {
 
   const handleResetAll = () => {
     try {
+      localStorage.removeItem("safecorridor_evaluation_v7");
       localStorage.removeItem("safecorridor_evaluation_v6");
       localStorage.removeItem("safecorridor_evaluation_v5");
       localStorage.removeItem("safecorridor_evaluation_v4");
@@ -265,7 +266,7 @@ export function App() {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
       try {
-        localStorage.setItem("safecorridor_evaluation_v6", JSON.stringify(data));
+        localStorage.setItem("safecorridor_evaluation_v7", JSON.stringify(data));
       } catch {}
 
       // Keep form inputs aligned with resolved display names

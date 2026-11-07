@@ -621,151 +621,167 @@ def generate_simulated_alternatives(
     return routes
 
 
-def fetch_ors_routes(
-    api_key: str,
-    start_lon: float,
-    start_lat: float,
-    end_lon: float,
-    end_lat: float,
-    step_miles: float,
-    departure_time: datetime,
-) -> Optional[List[Dict[str, Any]]]:
-    """
-    Queries OpenRouteService API:
-    - If distance <= 100km (62 miles), uses ORS native alternative_routes
-    - If distance > 100km, queries ORS with 3 distinct corridor trajectories
-      (Direct, North/Lateral Bypass, South/Lateral Bypass) to bypass ORS's 100km alternative_routes limit.
-    """
-    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
-    headers = {
-        "Authorization": api_key,
-        "Content-Type": "application/json",
-    }
-
-    direct_dist_miles = haversine_miles(start_lat, start_lon, end_lat, end_lon)
-
-    # 1. If short route <= 62 miles, try native ORS alternative_routes
-    if direct_dist_miles <= 60.0:
-        body = {
-            "coordinates": [[start_lon, start_lat], [end_lon, end_lat]],
-            "alternative_routes": {
-                "target_count": 3,
-                "weight_factor": 1.4,
-                "share_factor": 0.6,
-            },
-            "instructions": False,
-        }
-        try:
-            resp = requests.post(url, json=body, headers=headers, timeout=12)
-            if resp.status_code == 200:
-                data = resp.json()
-                features = data.get("features", [])
-                if len(features) >= 1:
-                    routes = []
-                    for i, feat in enumerate(features):
-                        props = feat.get("properties", {}).get("summary", {})
-                        dist_meters = props.get("distance", 0.0)
-                        dur_seconds = props.get("duration", 0.0)
-                        coords = feat.get("geometry", {}).get("coordinates", [])
-                        dist_miles = dist_meters * METERS_TO_MILES
-
-                        checkpoints = interpolate_polyline_checkpoints(
-                            coordinates=coords,
-                            step_miles=step_miles,
-                            total_distance_miles=dist_miles,
-                            total_duration_seconds=dur_seconds,
-                            departure_time=departure_time,
-                        )
-                        routes.append({
-                            "id": f"route_option_{i + 1}",
-                            "name": f"ORS Highway Option {i + 1}",
-                            "summary_title": f"Route {i + 1} (ORS)",
-                            "distance_miles": round(dist_miles, 1),
-                            "duration_hours": round(dur_seconds / 3600.0, 1),
-                            "duration_seconds": round(dur_seconds, 0),
-                            "coordinates": coords,
-                            "checkpoints": checkpoints,
-                            "step_miles": step_miles,
-                        })
-                    if len(routes) >= 3:
-                        return routes
-        except Exception as e:
-            logger.warning(f"ORS short route query failed: {e}")
-
-    # 2. For routes > 100km: query 3 distinct corridors via ORS
-    dx = end_lon - start_lon
-    dy = end_lat - start_lat
-    mid_lon = (start_lon + end_lon) / 2.0
-    mid_lat = (start_lat + end_lat) / 2.0
-
-    # Perpendicular unit offsets
-    perp_dx = -dy
-    perp_dy = dx
-    norm = math.hypot(perp_dx, perp_dy) or 1.0
-    perp_dx /= norm
-    perp_dy /= norm
-
-    # Lateral offset proportional to distance (approx 12-15% lateral detour)
-    offset_dist = min(3.0, max(0.5, direct_dist_miles * 0.002))
-
-    corridors = [
-        {"name": "Interstate Primary Route (ORS)", "coords": [[start_lon, start_lat], [end_lon, end_lat]]},
-        {
-            "name": "Northern Corridor (ORS)",
-            "coords": [
-                [start_lon, start_lat],
-                [round(mid_lon + perp_dx * offset_dist, 5), round(mid_lat + perp_dy * offset_dist, 5)],
-                [end_lon, end_lat],
-            ],
-        },
-        {
-            "name": "Southern Corridor (ORS)",
-            "coords": [
-                [start_lon, start_lat],
-                [round(mid_lon - perp_dx * offset_dist, 5), round(mid_lat - perp_dy * offset_dist, 5)],
-                [end_lon, end_lat],
-            ],
-        },
-    ]
-
-    routes = []
-    for idx, c in enumerate(corridors):
-        try:
-            resp = requests.post(url, json={"coordinates": c["coords"], "instructions": False}, headers=headers, timeout=12)
-            if resp.status_code == 200:
-                data = resp.json()
-                feat = data.get("features", [])[0]
-                props = feat.get("properties", {}).get("summary", {})
-                dist_meters = props.get("distance", 0.0)
-                dur_seconds = props.get("duration", 0.0)
-                coords = feat.get("geometry", {}).get("coordinates", [])
-
-                dist_miles = dist_meters * METERS_TO_MILES
-                checkpoints = interpolate_polyline_checkpoints(
-                    coordinates=coords,
-                    step_miles=step_miles,
-                    total_distance_miles=dist_miles,
-                    total_duration_seconds=dur_seconds,
-                    departure_time=departure_time,
-                )
-
-                routes.append({
-                    "id": f"route_option_{idx + 1}",
-                    "name": c["name"],
-                    "summary_title": f"Route {idx + 1}: {c['name']}",
-                    "distance_miles": round(dist_miles, 1),
-                    "duration_hours": round(dur_seconds / 3600.0, 1),
-                    "duration_seconds": round(dur_seconds, 0),
-                    "coordinates": coords,
-                    "checkpoints": checkpoints,
-                    "step_miles": step_miles,
-                })
-        except Exception as e:
-            logger.warning(f"ORS corridor {idx + 1} query failed: {e}")
-
-    if len(routes) == 3:
-        return routes
-    return None
+# Curated US Interstate Highway Junctions for realistic multi-corridor freight routing
+INTERSTATE_HUBS: List[Tuple[str, float, float]] = [
+    # Pacific Northwest & Northern Tier (I-5, I-82, I-84, I-90, I-15, I-94)
+    ("Ellensburg, WA (I-90/I-82)", 46.9965, -120.5478),
+    ("Kennewick, WA (I-82/US-395)", 46.2112, -119.1372),
+    ("Spokane, WA (I-90)", 47.6588, -117.4260),
+    ("Coeur d'Alene, ID (I-90)", 47.6777, -116.7805),
+    ("Missoula, MT (I-90)", 46.8721, -113.9940),
+    ("Butte, MT (I-90/I-15)", 46.0038, -112.5348),
+    ("Bozeman, MT (I-90)", 45.6770, -111.0429),
+    ("Billings, MT (I-90/I-94)", 45.7833, -108.5007),
+    ("Miles City, MT (I-94)", 46.4083, -105.8406),
+    ("Sheridan, WY (I-90)", 44.7972, -106.9562),
+    ("Gillette, WY (I-90)", 44.2911, -105.5022),
+    ("Rapid City, SD (I-90)", 44.0805, -103.2310),
+    ("Sioux Falls, SD (I-90/I-29)", 43.5446, -96.7311),
+    ("Bismarck, ND (I-94)", 46.8083, -100.7837),
+    ("Fargo, ND (I-94/I-29)", 46.8772, -96.7898),
+    # Oregon, Idaho, Utah, Wyoming, Colorado (I-84, I-15, I-80, I-70, I-25)
+    ("Portland, OR (I-5/I-84)", 45.5152, -122.6784),
+    ("The Dalles, OR (I-84)", 45.5946, -121.1787),
+    ("Pendleton, OR (I-84)", 45.6721, -118.7886),
+    ("La Grande, OR (I-84)", 45.3246, -118.0877),
+    ("Ontario, OR (I-84)", 44.0266, -116.9629),
+    ("Boise, ID (I-84)", 43.6150, -116.2023),
+    ("Twin Falls, ID (I-84/US-93)", 42.5558, -114.4701),
+    ("Pocatello, ID (I-15/I-86)", 42.8621, -112.4506),
+    ("Idaho Falls, ID (I-15)", 43.4917, -112.0340),
+    ("Ogden, UT (I-15/I-84)", 41.2230, -111.9738),
+    ("Salt Lake City, UT (I-15/I-80)", 40.7608, -111.8910),
+    ("Provo, UT (I-15/US-6)", 40.2338, -111.6585),
+    ("Green River, UT (I-70)", 38.9958, -110.1618),
+    ("Grand Junction, CO (I-70)", 39.0639, -108.5506),
+    ("Glenwood Springs, CO (I-70)", 39.5505, -107.3248),
+    ("Evanston, WY (I-80)", 41.2683, -110.9632),
+    ("Rock Springs, WY (I-80)", 41.5875, -109.2029),
+    ("Rawlins, WY (I-80)", 41.7911, -107.2387),
+    ("Laramie, WY (I-80)", 41.3114, -105.5911),
+    ("Cheyenne, WY (I-80/I-25)", 41.1400, -104.8202),
+    ("Casper, WY (I-25)", 42.8501, -106.3252),
+    ("Fort Collins, CO (I-25)", 40.5853, -105.0844),
+    ("Denver, CO (I-25/I-70)", 39.7392, -104.9903),
+    ("Colorado Springs, CO (I-25)", 38.8339, -104.8214),
+    ("Pueblo, CO (I-25/US-50)", 38.2544, -104.6091),
+    # West Coast, Nevada & Southwest (I-5, I-80, I-15, I-40, I-10, I-25)
+    ("Eugene, OR (I-5)", 44.0521, -123.0868),
+    ("Medford, OR (I-5)", 42.3265, -122.8756),
+    ("Redding, CA (I-5)", 40.5865, -122.3917),
+    ("Sacramento, CA (I-5/I-80)", 38.5816, -121.4944),
+    ("Reno, NV (I-80)", 39.5296, -119.8138),
+    ("Winnemucca, NV (I-80)", 40.9730, -117.7357),
+    ("Elko, NV (I-80)", 40.8324, -115.7631),
+    ("Fresno, CA (CA-99)", 36.7378, -119.7871),
+    ("Bakersfield, CA (I-5/CA-58)", 35.3733, -119.0187),
+    ("Barstow, CA (I-15/I-40)", 34.8958, -117.0173),
+    ("Las Vegas, NV (I-15)", 36.1699, -115.1398),
+    ("St. George, UT (I-15)", 37.0965, -113.5684),
+    ("Cove Fort, UT (I-15/I-70)", 38.6011, -112.5830),
+    ("Kingman, AZ (I-40)", 35.1894, -114.0530),
+    ("Flagstaff, AZ (I-40/I-17)", 35.1983, -111.6513),
+    ("Holbrook, AZ (I-40)", 34.9022, -110.1582),
+    ("Phoenix, AZ (I-10/I-17)", 33.4484, -112.0740),
+    ("Tucson, AZ (I-10)", 32.2226, -110.9747),
+    ("Gallup, NM (I-40)", 35.5281, -108.7426),
+    ("Albuquerque, NM (I-40/I-25)", 35.0844, -106.6504),
+    ("Santa Fe, NM (I-25)", 35.6870, -105.9378),
+    ("Tucumcari, NM (I-40)", 35.1717, -103.7250),
+    ("Las Cruces, NM (I-10/I-25)", 32.3199, -106.7637),
+    ("El Paso, TX (I-10)", 31.7619, -106.4850),
+    # Great Plains, Texas & South Central (I-70, I-80, I-35, I-40, I-44, I-20, I-10)
+    ("North Platte, NE (I-80)", 41.1239, -100.7654),
+    ("Kearney, NE (I-80)", 40.6993, -99.0817),
+    ("Lincoln, NE (I-80)", 40.8136, -96.7026),
+    ("Omaha, NE (I-80/I-29)", 41.2565, -95.9345),
+    ("Colby, KS (I-70)", 39.3958, -101.0524),
+    ("Hays, KS (I-70)", 38.8792, -99.3268),
+    ("Salina, KS (I-70/I-135)", 38.8403, -97.6114),
+    ("Topeka, KS (I-70)", 39.0473, -95.6752),
+    ("Wichita, KS (I-35)", 37.6872, -97.3301),
+    ("Kansas City, MO (I-70/I-35/I-29)", 39.0997, -94.5786),
+    ("Joplin, MO (I-44/I-49)", 37.0842, -94.5133),
+    ("Springfield, MO (I-44)", 37.2090, -93.2923),
+    ("St. Louis, MO (I-70/I-55/I-44)", 38.6270, -90.1994),
+    ("Amarillo, TX (I-40/I-27)", 35.2220, -101.8313),
+    ("Lubbock, TX (I-27)", 33.5779, -101.8552),
+    ("Wichita Falls, TX (I-44/US-287)", 33.9137, -98.4934),
+    ("Abilene, TX (I-20)", 32.4487, -99.7331),
+    ("Midland, TX (I-20)", 31.9973, -102.0779),
+    ("Fort Worth, TX (I-35W/I-20)", 32.7555, -97.3308),
+    ("Dallas, TX (I-35E/I-20/I-45)", 32.7767, -96.7970),
+    ("Waco, TX (I-35)", 31.5493, -97.1467),
+    ("Austin, TX (I-35)", 30.2672, -97.7431),
+    ("San Antonio, TX (I-10/I-35)", 29.4241, -98.4936),
+    ("Houston, TX (I-10/I-45)", 29.7604, -95.3698),
+    ("Texarkana, TX (I-30)", 33.4251, -94.0477),
+    ("Oklahoma City, OK (I-35/I-40/I-44)", 35.4676, -97.5164),
+    ("Tulsa, OK (I-44)", 36.1540, -95.9928),
+    ("Fort Smith, AR (I-40)", 35.3859, -94.3985),
+    ("Little Rock, AR (I-40/I-30)", 34.7465, -92.2896),
+    ("Shreveport, LA (I-20/I-49)", 32.5252, -93.7502),
+    ("Baton Rouge, LA (I-10/I-12)", 30.4515, -91.1871),
+    ("New Orleans, LA (I-10/I-55)", 29.9511, -90.0715),
+    # Midwest & Great Lakes (I-35, I-80, I-90, I-94, I-55, I-57, I-65, I-70, I-75)
+    ("Minneapolis, MN (I-35/I-94)", 44.9778, -93.2650),
+    ("Albert Lea, MN (I-35/I-90)", 43.6480, -93.3683),
+    ("Des Moines, IA (I-35/I-80)", 41.5868, -93.6250),
+    ("Davenport, IA (I-80/I-74)", 41.5236, -90.5776),
+    ("Madison, WI (I-90/I-94)", 43.0731, -89.4012),
+    ("Milwaukee, WI (I-94/I-43)", 43.0389, -87.9065),
+    ("Chicago, IL (I-90/I-80/I-55)", 41.8781, -87.6298),
+    ("Bloomington, IL (I-55/I-74/I-39)", 40.4842, -88.9937),
+    ("Champaign, IL (I-57/I-74)", 40.1164, -88.2434),
+    ("Effingham, IL (I-57/I-70)", 39.1200, -88.5434),
+    ("Indianapolis, IN (I-70/I-65/I-69)", 39.7684, -86.1581),
+    ("Fort Wayne, IN (I-69)", 41.0793, -85.1394),
+    ("Toledo, OH (I-80/I-75)", 41.6528, -83.5379),
+    ("Detroit, MI (I-75/I-94)", 42.3314, -83.0458),
+    ("Cleveland, OH (I-80/I-90/I-71)", 41.4993, -81.6944),
+    ("Columbus, OH (I-70/I-71)", 39.9612, -82.9988),
+    ("Dayton, OH (I-70/I-75)", 39.7589, -84.1916),
+    ("Cincinnati, OH (I-75/I-71)", 39.1031, -84.5120),
+    # Southeast, Mid-South & East Coast (I-40, I-65, I-75, I-81, I-85, I-95, I-20, I-10)
+    ("Louisville, KY (I-65/I-64)", 38.2527, -85.7585),
+    ("Lexington, KY (I-75/I-64)", 38.0406, -84.5037),
+    ("Nashville, TN (I-40/I-65/I-24)", 36.1627, -86.7816),
+    ("Memphis, TN (I-40/I-55)", 35.1495, -90.0490),
+    ("Chattanooga, TN (I-75/I-24)", 35.0456, -85.3097),
+    ("Knoxville, TN (I-40/I-75)", 35.9606, -83.9207),
+    ("Jackson, MS (I-55/I-20)", 32.2988, -90.1848),
+    ("Birmingham, AL (I-65/I-20/I-59)", 33.5186, -86.8104),
+    ("Montgomery, AL (I-65/I-85)", 32.3792, -86.3077),
+    ("Mobile, AL (I-10/I-65)", 30.6954, -88.0399),
+    ("Atlanta, GA (I-75/I-85/I-20)", 33.7490, -84.3880),
+    ("Macon, GA (I-75/I-16)", 32.8407, -83.6324),
+    ("Savannah, GA (I-95/I-16)", 32.0809, -81.0912),
+    ("Valdosta, GA (I-75)", 30.8327, -83.2785),
+    ("Tallahassee, FL (I-10)", 30.4383, -84.2807),
+    ("Lake City, FL (I-75/I-10)", 30.1897, -82.6393),
+    ("Jacksonville, FL (I-95/I-10)", 30.3322, -81.6557),
+    ("Orlando, FL (I-4/Turnpike)", 28.5383, -81.3792),
+    ("Tampa, FL (I-75/I-4)", 27.9506, -82.4572),
+    ("Columbia, SC (I-20/I-26/I-77)", 34.0007, -81.0348),
+    ("Florence, SC (I-95/I-20)", 34.1954, -79.7626),
+    ("Charlotte, NC (I-85/I-77)", 35.2271, -80.8431),
+    ("Greensboro, NC (I-40/I-85)", 36.0726, -79.7920),
+    ("Raleigh, NC (I-40/I-95)", 35.7796, -78.6382),
+    ("Wytheville, VA (I-81/I-77)", 36.9485, -81.0848),
+    ("Roanoke, VA (I-81)", 37.2710, -79.9414),
+    ("Richmond, VA (I-95/I-64)", 37.5407, -77.4360),
+    ("Charleston, WV (I-77/I-64/I-79)", 38.3498, -81.6326),
+    ("Morgantown, WV (I-79/I-68)", 39.6295, -79.9559),
+    ("Hagerstown, MD (I-81/I-70)", 39.6418, -77.7200),
+    ("Baltimore, MD (I-95/I-70)", 39.2904, -76.6122),
+    ("Pittsburgh, PA (I-76/I-79)", 40.4406, -79.9959),
+    ("Harrisburg, PA (I-81/I-76/I-83)", 40.2732, -76.8867),
+    ("Scranton, PA (I-81/I-80)", 41.4090, -75.6624),
+    ("Philadelphia, PA (I-95/I-76)", 39.9526, -75.1652),
+    ("Syracuse, NY (I-90/I-81)", 43.0481, -76.1474),
+    ("Albany, NY (I-90/I-87)", 42.6526, -73.7562),
+    ("Hartford, CT (I-84/I-91)", 41.7658, -72.6734),
+]
 
 
 def _build_arc_length_table(coords: List[List[float]]) -> Tuple[List[float], float]:
@@ -820,259 +836,149 @@ def _mean_corridor_separation_miles(coords_a: List[List[float]], coords_b: List[
     return sum(dists) / len(dists)
 
 
-def _downsample_coords(coords: List[List[float]], max_pts: int = 600) -> List[List[float]]:
-    """Downsamples dense OSRM polylines to at most `max_pts` vertices while preserving exact start and end."""
-    if not coords or len(coords) <= max_pts:
-        return coords
-    n = len(coords)
-    result: List[List[float]] = []
-    for k in range(max_pts):
-        idx = int(round((k / float(max_pts - 1)) * (n - 1)))
-        result.append(coords[idx])
-    return result
+def _min_dist_to_polyline_miles(
+    lat: float, lon: float, coords: List[List[float]]
+) -> Tuple[float, int]:
+    """Returns (min_distance_miles, nearest_vertex_index) from (lat, lon) to a polyline."""
+    if not coords:
+        return (0.0, 0)
+    step = max(1, len(coords) // 250)
+    best_d = 1e9
+    best_idx = 0
+    for idx in range(0, len(coords), step):
+        pt_lon, pt_lat = coords[idx]
+        d = haversine_miles(lat, lon, pt_lat, pt_lon)
+        if d < best_d:
+            best_d = d
+            best_idx = idx
+    return best_d, best_idx
 
 
-def ensure_distinct_corridor_geometries(
-    routes: List[Dict[str, Any]],
+def _select_corridor_hub_waypoints(
     start_lat: float,
     start_lon: float,
     end_lat: float,
     end_lon: float,
-    step_miles: float,
-    departure_time: datetime,
-) -> List[Dict[str, Any]]:
+    primary_coords: List[List[float]],
+) -> Tuple[List[Tuple[str, float, float]], List[Tuple[str, float, float]]]:
     """
-    Guarantees that all 3 route alternatives follow geographically distinct paths on the map,
-    and that every route's checkpoints are interpolated directly along its own polyline.
+    Selects real highway junction waypoints on opposite sides of the primary route (`side_pos` and `side_neg`)
+    so that ORS / OSRM generates realistic alternative highway corridors within the same freight corridor
+    without off-road detours or U-turns.
+    Returns (pos_candidates, neg_candidates) where each item is (label, lat, lon).
     """
-    if not routes or len(routes) < 2:
-        return routes
-
-    for r in routes:
-        if r.get("coordinates"):
-            r["coordinates"] = _downsample_coords(r["coordinates"], 600)
-
-    direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
-    min_sep_miles = max(4.0, direct_dist_miles * 0.065)
-
+    direct_dist = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
     dx = end_lon - start_lon
     dy = end_lat - start_lat
     deg_span = math.hypot(dx, dy) or 0.1
+    ux = dx / deg_span
+    uy = dy / deg_span
+
+    is_us_domestic = (
+        24.0 <= start_lat <= 49.0
+        and 24.0 <= end_lat <= 49.0
+        and -125.5 <= start_lon <= -66.5
+        and -125.5 <= end_lon <= -66.5
+    )
+
+    candidate_pool: List[Tuple[str, float, float]] = list(INTERSTATE_HUBS)
+    if not is_us_domestic:
+        for _, (h_lat, h_lon, h_label) in KNOWN_HUBS.items():
+            candidate_pool.append((h_label, h_lat, h_lon))
+
+    min_poly_sep = max(10.0, direct_dist * 0.035)
+    max_poly_sep = min(220.0, max(35.0, direct_dist * 0.24))
+
+    pos_scored: List[Tuple[float, str, float, float]] = []
+    neg_scored: List[Tuple[float, str, float, float]] = []
+
+    for label, h_lat, h_lon in candidate_pool:
+        if is_us_domestic and h_lat > 48.85:
+            continue
+
+        # Fractional projection along start -> end chord
+        t = ((h_lon - start_lon) * dx + (h_lat - start_lat) * dy) / (deg_span * deg_span)
+        if not (0.14 <= t <= 0.86):
+            continue
+
+        d_start = haversine_miles(start_lat, start_lon, h_lat, h_lon)
+        d_end = haversine_miles(h_lat, h_lon, end_lat, end_lon)
+        detour_ratio = (d_start + d_end) / direct_dist
+        if detour_ratio > 1.21:
+            continue
+
+        d_poly, near_idx = _min_dist_to_polyline_miles(h_lat, h_lon, primary_coords)
+        if not (min_poly_sep <= d_poly <= max_poly_sep):
+            continue
+
+        near_lon, near_lat = primary_coords[near_idx]
+        cross = ux * (h_lat - near_lat) - uy * (h_lon - near_lon)
+        side = 1 if cross >= 0 else -1
+
+        # Prefer low detour ratio and central placement along the corridor
+        centrality_penalty = abs(t - 0.50) * 0.08
+        score = detour_ratio + centrality_penalty
+
+        if side > 0:
+            pos_scored.append((score, label, h_lat, h_lon))
+        else:
+            neg_scored.append((score, label, h_lat, h_lon))
+
+    pos_scored.sort(key=lambda item: item[0])
+    neg_scored.sort(key=lambda item: item[0])
+
+    pos_candidates = [(lbl, lat, lon) for _, lbl, lat, lon in pos_scored[:5]]
+    neg_candidates = [(lbl, lat, lon) for _, lbl, lat, lon in neg_scored[:5]]
+
+    # Gentle midpoint fallback for short regional routes where no major inter-city hub sits in between
     perp_dx = -dy / deg_span
     perp_dy = dx / deg_span
+    mid_lon = (start_lon + end_lon) / 2.0
+    mid_lat = (start_lat + end_lat) / 2.0
+    for mult in (0.08, 0.13):
+        off = min(1.2, max(0.06, deg_span * mult))
+        p_lat = round(mid_lat + perp_dy * off, 5)
+        p_lon = round(mid_lon + perp_dx * off, 5)
+        n_lat = round(mid_lat - perp_dy * off, 5)
+        n_lon = round(mid_lon - perp_dx * off, 5)
+        if not is_us_domestic or p_lat <= 48.85:
+            pos_candidates.append((f"Northern Corridor Waypoint ({mult})", p_lat, p_lon))
+        if not is_us_domestic or n_lat <= 48.85:
+            neg_candidates.append((f"Southern Corridor Waypoint ({mult})", n_lat, n_lon))
 
-    candidate_arches = [
-        -0.08 * deg_span,
-        0.08 * deg_span,
-        -0.12 * deg_span,
-        0.12 * deg_span,
-    ]
-
-    for i in range(1, len(routes)):
-        coords_i = routes[i].get("coordinates", [])
-        if len(coords_i) < 2:
-            continue
-
-        overlaps = any(
-            _mean_corridor_separation_miles(coords_i, routes[j].get("coordinates", [])) < min_sep_miles
-            for j in range(i)
-        )
-        if not overlaps:
-            continue
-
-        cum_i, tot_i = _build_arc_length_table(coords_i)
-        if tot_i <= 0:
-            continue
-
-        candidate_polylines: List[Tuple[List[List[float]], float]] = []
-
-        # 1. If there is a non-overlapping partner route, build a Central Interior Corridor
-        # halfway between `coords_i` and the distinct partner route (stays 100% inside the US corridor!)
-        for j in range(len(routes)):
-            if j == i:
-                continue
-            coords_j = routes[j].get("coordinates", [])
-            sep_ij = _mean_corridor_separation_miles(coords_i, coords_j)
-            if sep_ij >= min_sep_miles * 1.4 and len(coords_j) >= 2:
-                cum_j, tot_j = _build_arc_length_table(coords_j)
-                if tot_j > 0:
-                    blended: List[List[float]] = []
-                    for k, (lon, lat) in enumerate(coords_i):
-                        t = cum_i[k] / tot_i
-                        lat_j, lon_j = _sample_polyline_by_distance(coords_j, cum_j, tot_j, t)
-                        # Smooth central corridor blend (48% toward partner route across middle)
-                        w = 0.48 * math.sin(math.pi * t)
-                        b_lon = round(lon * (1.0 - w) + lon_j * w, 6)
-                        b_lat = round(lat * (1.0 - w) + lat_j * w, 6)
-                        blended.append([b_lon, b_lat])
-                    candidate_polylines.append((blended, 0.0))
-
-        # 2. Also include gentle lateral arches parameterized by arc-length
-        for arch_deg in candidate_arches:
-            test_coords: List[List[float]] = []
-            for k, (lon, lat) in enumerate(coords_i):
-                t = cum_i[k] / tot_i
-                envelope = math.sin(math.pi * t)
-                new_lon = round(lon + perp_dx * arch_deg * envelope, 6)
-                new_lat = round(lat + perp_dy * arch_deg * envelope, 6)
-                test_coords.append([new_lon, new_lat])
-            candidate_polylines.append((test_coords, abs(arch_deg)))
-
-        best_coords = coords_i
-        best_score = -1e9
-
-        for test_coords, penalty in candidate_polylines:
-            min_sep_to_others = min(
-                _mean_corridor_separation_miles(test_coords, routes[j].get("coordinates", []))
-                for j in range(len(routes))
-                if j != i
-            )
-            clears = min_sep_to_others >= min_sep_miles
-            # Prefer central blended corridor (penalty == 0) or smallest arch that clears threshold
-            score = (
-                10000.0 - penalty * 500.0 + min(min_sep_to_others, min_sep_miles * 1.8)
-                if clears
-                else min_sep_to_others - penalty * 50.0
-            )
-            if score > best_score:
-                best_score = score
-                best_coords = test_coords
-
-        # Recompute cumulative distance and checkpoints directly along best_coords
-        _, total_dist = _build_arc_length_table(best_coords)
-        base_dist = routes[i].get("distance_miles", direct_dist_miles * 1.18)
-        new_dist = max(total_dist, base_dist * 1.02)
-        avg_speed_mph = 58.0
-        new_dur_sec = (new_dist / avg_speed_mph) * 3600.0
-
-        new_checkpoints = interpolate_polyline_checkpoints(
-            coordinates=best_coords,
-            step_miles=step_miles,
-            total_distance_miles=new_dist,
-            total_duration_seconds=new_dur_sec,
-            departure_time=departure_time,
-        )
-
-        routes[i]["coordinates"] = best_coords
-        routes[i]["distance_miles"] = round(new_dist, 1)
-        routes[i]["duration_hours"] = round(new_dur_sec / 3600.0, 1)
-        routes[i]["duration_seconds"] = round(new_dur_sec, 0)
-        routes[i]["checkpoints"] = new_checkpoints
-
-    return routes
+    return pos_candidates, neg_candidates
 
 
-def fetch_osrm_routes(
-    start_lon: float,
-    start_lat: float,
-    end_lon: float,
-    end_lat: float,
+def _build_route_dict(
+    idx: int,
+    name: str,
+    summary_prefix: str,
+    coords: List[List[float]],
+    dist_meters: float,
+    dur_seconds: float,
     step_miles: float,
     departure_time: datetime,
-) -> Optional[List[Dict[str, Any]]]:
-    """
-    Queries public OSRM for 3 distinct highway corridors:
-    1. Direct Primary Corridor
-    2. Northern / Eastern Lateral Bypass Corridor (dual guide waypoints)
-    3. Southern / Western Lateral Bypass Corridor (dual guide waypoints)
-    """
-    direct_dist_miles = haversine_miles(start_lat, start_lon, end_lat, end_lon)
-
-    dx = end_lon - start_lon
-    dy = end_lat - start_lat
-    deg_span = math.hypot(dx, dy) or 0.1
-
-    perp_dx = -dy / deg_span
-    perp_dy = dx / deg_span
-
-    # Lateral offset proportional to trip span so cross-country corridors select distinct interstates
-    offset_dist = min(4.8, max(0.35, deg_span * 0.18))
-
-    # Two guide points at 35% and 65% along the route keep each bypass on a separate highway trunk
-    lon_35 = start_lon + 0.35 * dx
-    lat_35 = start_lat + 0.35 * dy
-    lon_65 = start_lon + 0.65 * dx
-    lat_65 = start_lat + 0.65 * dy
-
-    corridors = [
-        {
-            "name": "OSRM Highway Route 1",
-            "coords_str": f"{start_lon},{start_lat};{end_lon},{end_lat}",
-        },
-        {
-            "name": "OSRM Highway Route 2",
-            "coords_str": (
-                f"{start_lon},{start_lat};"
-                f"{round(lon_35 + perp_dx * offset_dist, 5)},{round(lat_35 + perp_dy * offset_dist, 5)};"
-                f"{round(lon_65 + perp_dx * offset_dist, 5)},{round(lat_65 + perp_dy * offset_dist, 5)};"
-                f"{end_lon},{end_lat}"
-            ),
-        },
-        {
-            "name": "OSRM Highway Route 3",
-            "coords_str": (
-                f"{start_lon},{start_lat};"
-                f"{round(lon_35 - perp_dx * offset_dist, 5)},{round(lat_35 - perp_dy * offset_dist, 5)};"
-                f"{round(lon_65 - perp_dx * offset_dist, 5)},{round(lat_65 - perp_dy * offset_dist, 5)};"
-                f"{end_lon},{end_lat}"
-            ),
-        },
-    ]
-
-    routes = []
-    for idx, c in enumerate(corridors):
-        url = f"https://router.project-osrm.org/route/v1/driving/{c['coords_str']}?overview=full&geometries=geojson"
-        try:
-            resp = requests.get(url, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                raw_routes = data.get("routes", [])
-                if raw_routes:
-                    r = raw_routes[0]
-                    dist_meters = r.get("distance", 0.0)
-                    dur_seconds = r.get("duration", 0.0)
-                    coords = r.get("geometry", {}).get("coordinates", [])
-
-                    dist_miles = dist_meters * METERS_TO_MILES
-                    checkpoints = interpolate_polyline_checkpoints(
-                        coordinates=coords,
-                        step_miles=step_miles,
-                        total_distance_miles=dist_miles,
-                        total_duration_seconds=dur_seconds,
-                        departure_time=departure_time,
-                    )
-
-                    routes.append({
-                        "id": f"route_option_{idx + 1}",
-                        "name": c["name"],
-                        "summary_title": f"Route {idx + 1} (OSRM)",
-                        "distance_miles": round(dist_miles, 1),
-                        "duration_hours": round(dur_seconds / 3600.0, 1),
-                        "duration_seconds": round(dur_seconds, 0),
-                        "coordinates": coords,
-                        "checkpoints": checkpoints,
-                        "step_miles": step_miles,
-                    })
-        except Exception as e:
-            logger.warning(f"OSRM corridor {idx + 1} routing failed: {e}")
-
-    if len(routes) < 3 and routes:
-        simulated = generate_simulated_alternatives(
-            start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
-        )
-        for sim in simulated:
-            if len(routes) >= 3:
-                break
-            sim["id"] = f"route_option_{len(routes) + 1}"
-            sim["summary_title"] = f"Route {len(routes) + 1} ({sim['name']})"
-            routes.append(sim)
-
-    if len(routes) >= 3:
-        return ensure_distinct_corridor_geometries(
-            routes[:3], start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
-        )
-
-    return None
+) -> Dict[str, Any]:
+    """Constructs a standardized route dictionary preserving 100% unmodified API road geometry and distance."""
+    dist_miles = dist_meters * METERS_TO_MILES
+    checkpoints = interpolate_polyline_checkpoints(
+        coordinates=coords,
+        step_miles=step_miles,
+        total_distance_miles=dist_miles,
+        total_duration_seconds=dur_seconds,
+        departure_time=departure_time,
+    )
+    return {
+        "id": f"route_option_{idx}",
+        "name": name,
+        "summary_title": f"Route {idx} ({summary_prefix})",
+        "distance_miles": round(dist_miles, 1),
+        "duration_hours": round(dur_seconds / 3600.0, 1),
+        "duration_seconds": round(dur_seconds, 0),
+        "coordinates": coords,
+        "checkpoints": checkpoints,
+        "step_miles": step_miles,
+    }
 
 
 def _route_mid_centroid(route: Dict[str, Any]) -> Tuple[float, float]:
@@ -1087,6 +993,356 @@ def _route_mid_centroid(route: Dict[str, Any]) -> Tuple[float, float]:
     mean_lon = sum(pt[0] for pt in slice_coords) / len(slice_coords)
     mean_lat = sum(pt[1] for pt in slice_coords) / len(slice_coords)
     return (mean_lat, mean_lon)
+
+
+def _route_corridor_side(
+    route_coords: List[List[float]],
+    primary_coords: List[List[float]],
+    start_lat: float,
+    start_lon: float,
+    end_lat: float,
+    end_lon: float,
+) -> int:
+    """Returns +1 if `route_coords` lies on the positive (North/Left) side of `primary_coords`, else -1."""
+    dx = end_lon - start_lon
+    dy = end_lat - start_lat
+    deg_span = math.hypot(dx, dy) or 0.1
+    ux = dx / deg_span
+    uy = dy / deg_span
+
+    r_lat, r_lon = _route_mid_centroid({"coordinates": route_coords})
+    p_lat, p_lon = _route_mid_centroid({"coordinates": primary_coords})
+    cross = ux * (r_lat - p_lat) - uy * (r_lon - p_lon)
+    return 1 if cross >= 0 else -1
+
+
+def _is_distinct_valid_corridor(
+    candidate_coords: List[List[float]],
+    candidate_dist_miles: float,
+    existing_routes: List[Dict[str, Any]],
+    direct_dist_miles: float,
+    is_us_domestic: bool,
+) -> bool:
+    """Verifies that a candidate route stays in-country, has realistic distance, and is distinct from existing routes."""
+    if not candidate_coords or len(candidate_coords) < 2:
+        return False
+
+    if is_us_domestic:
+        # Domestic US routes must stay south of the 49th parallel (no detours into Canada)
+        step = max(1, len(candidate_coords) // 120)
+        if any(candidate_coords[i][1] > 49.02 for i in range(0, len(candidate_coords), step)):
+            return False
+
+    primary_dist = existing_routes[0]["distance_miles"] if existing_routes else direct_dist_miles * 1.18
+    if candidate_dist_miles > max(primary_dist * 1.28, direct_dist_miles * 1.48):
+        return False
+
+    min_sep_miles = max(4.0, direct_dist_miles * 0.045)
+    for r in existing_routes:
+        sep = _mean_corridor_separation_miles(candidate_coords, r.get("coordinates", []))
+        if sep < min_sep_miles:
+            return False
+    return True
+
+
+def fetch_ors_routes(
+    api_key: str,
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+    step_miles: float,
+    departure_time: datetime,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Queries OpenRouteService Directions API (`v2/directions/driving-car/geojson`):
+    1. Fetches the direct primary route (using native `alternative_routes` when <= 60 miles).
+    2. Selects real Interstate highway junctions on opposite sides of the primary route to generate
+       3 genuine highway corridors with 100% unmodified GeoJSON road geometry and true driving distances.
+    """
+    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+    headers = {
+        "Authorization": api_key,
+        "Content-Type": "application/json",
+    }
+
+    direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
+    is_us_domestic = (
+        24.0 <= start_lat <= 49.0
+        and 24.0 <= end_lat <= 49.0
+        and -125.5 <= start_lon <= -66.5
+        and -125.5 <= end_lon <= -66.5
+    )
+
+    routes: List[Dict[str, Any]] = []
+
+    # 1. Query primary route (with native alternative_routes when supported under 100km)
+    initial_body: Dict[str, Any] = {
+        "coordinates": [[start_lon, start_lat], [end_lon, end_lat]],
+        "instructions": False,
+    }
+    if direct_dist_miles <= 60.0:
+        initial_body["alternative_routes"] = {
+            "target_count": 3,
+            "weight_factor": 1.4,
+            "share_factor": 0.6,
+        }
+
+    try:
+        resp = requests.post(url, json=initial_body, headers=headers, timeout=12)
+        if resp.status_code == 200:
+            features = resp.json().get("features", [])
+            for feat in features:
+                props = feat.get("properties", {}).get("summary", {})
+                dist_meters = props.get("distance", 0.0)
+                dur_seconds = props.get("duration", 0.0)
+                coords = feat.get("geometry", {}).get("coordinates", [])
+                dist_miles = dist_meters * METERS_TO_MILES
+                if not routes or _is_distinct_valid_corridor(
+                    coords, dist_miles, routes, direct_dist_miles, is_us_domestic
+                ):
+                    idx = len(routes) + 1
+                    routes.append(
+                        _build_route_dict(
+                            idx,
+                            f"ORS Highway Corridor {idx}",
+                            "ORS",
+                            coords,
+                            dist_meters,
+                            dur_seconds,
+                            step_miles,
+                            departure_time,
+                        )
+                    )
+                if len(routes) >= 3:
+                    return routes[:3]
+    except Exception as e:
+        logger.warning(f"ORS primary route query failed: {e}")
+
+    if not routes:
+        return None
+
+    # 2. Fill remaining alternative corridors using real Interstate junction waypoints
+    primary_coords = routes[0]["coordinates"]
+    pos_candidates, neg_candidates = _select_corridor_hub_waypoints(
+        start_lat, start_lon, end_lat, end_lon, primary_coords
+    )
+
+    if len(routes) == 2:
+        existing_side = _route_corridor_side(
+            routes[1]["coordinates"], primary_coords, start_lat, start_lon, end_lat, end_lon
+        )
+        ordered_sides = (neg_candidates, pos_candidates) if existing_side > 0 else (pos_candidates, neg_candidates)
+    else:
+        ordered_sides = (pos_candidates, neg_candidates)
+
+    for side_candidates in ordered_sides:
+        if len(routes) >= 3:
+            break
+        for label, via_lat, via_lon in side_candidates:
+            try:
+                via_body = {
+                    "coordinates": [
+                        [start_lon, start_lat],
+                        [via_lon, via_lat],
+                        [end_lon, end_lat],
+                    ],
+                    "instructions": False,
+                }
+                resp = requests.post(url, json=via_body, headers=headers, timeout=12)
+                if resp.status_code == 200:
+                    features = resp.json().get("features", [])
+                    if features:
+                        feat = features[0]
+                        props = feat.get("properties", {}).get("summary", {})
+                        dist_meters = props.get("distance", 0.0)
+                        dur_seconds = props.get("duration", 0.0)
+                        coords = feat.get("geometry", {}).get("coordinates", [])
+                        dist_miles = dist_meters * METERS_TO_MILES
+                        if _is_distinct_valid_corridor(
+                            coords, dist_miles, routes, direct_dist_miles, is_us_domestic
+                        ):
+                            idx = len(routes) + 1
+                            routes.append(
+                                _build_route_dict(
+                                    idx,
+                                    f"ORS Corridor via {label}",
+                                    "ORS",
+                                    coords,
+                                    dist_meters,
+                                    dur_seconds,
+                                    step_miles,
+                                    departure_time,
+                                )
+                            )
+                            break
+            except Exception as e:
+                logger.warning(f"ORS waypoint query failed for {label}: {e}")
+
+    if len(routes) >= 3:
+        return routes[:3]
+    return None
+
+
+def fetch_osrm_routes(
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+    step_miles: float,
+    departure_time: datetime,
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Queries OSRM Directions API (`?overview=full&geometries=geojson&alternatives=3`):
+    1. Queries the direct route and any native OSRM alternative corridors.
+    2. Selects real Interstate highway junctions on opposite sides of the primary route (`INTERSTATE_HUBS`)
+       to complete 3 genuine highway corridors with 100% unmodified GeoJSON road geometry and true distances.
+    """
+    direct_dist_miles = max(1.0, haversine_miles(start_lat, start_lon, end_lat, end_lon))
+    is_us_domestic = (
+        24.0 <= start_lat <= 49.0
+        and 24.0 <= end_lat <= 49.0
+        and -125.5 <= start_lon <= -66.5
+        and -125.5 <= end_lon <= -66.5
+    )
+
+    routes: List[Dict[str, Any]] = []
+
+    # 1. Query primary route + native OSRM alternatives
+    primary_url = (
+        f"https://router.project-osrm.org/route/v1/driving/"
+        f"{start_lon},{start_lat};{end_lon},{end_lat}"
+        f"?overview=full&geometries=geojson&alternatives=3"
+    )
+    try:
+        resp = requests.get(primary_url, timeout=10)
+        if resp.status_code == 200:
+            raw_routes = resp.json().get("routes", [])
+            for r in raw_routes:
+                dist_meters = r.get("distance", 0.0)
+                dur_seconds = r.get("duration", 0.0)
+                coords = r.get("geometry", {}).get("coordinates", [])
+                dist_miles = dist_meters * METERS_TO_MILES
+                if not routes or _is_distinct_valid_corridor(
+                    coords, dist_miles, routes, direct_dist_miles, is_us_domestic
+                ):
+                    idx = len(routes) + 1
+                    routes.append(
+                        _build_route_dict(
+                            idx,
+                            f"OSRM Highway Route {idx}",
+                            "OSRM",
+                            coords,
+                            dist_meters,
+                            dur_seconds,
+                            step_miles,
+                            departure_time,
+                        )
+                    )
+                if len(routes) >= 3:
+                    return routes[:3]
+    except Exception as e:
+        logger.warning(f"OSRM primary route query failed: {e}")
+
+    if not routes:
+        return None
+
+    # 2. Query Interstate junction corridors on opposite sides of the primary route
+    primary_coords = routes[0]["coordinates"]
+    pos_candidates, neg_candidates = _select_corridor_hub_waypoints(
+        start_lat, start_lon, end_lat, end_lon, primary_coords
+    )
+
+    if len(routes) == 2:
+        existing_side = _route_corridor_side(
+            routes[1]["coordinates"], primary_coords, start_lat, start_lon, end_lat, end_lon
+        )
+        ordered_sides = (neg_candidates, pos_candidates) if existing_side > 0 else (pos_candidates, neg_candidates)
+    else:
+        ordered_sides = (pos_candidates, neg_candidates)
+
+    for side_candidates in ordered_sides:
+        if len(routes) >= 3:
+            break
+        for label, via_lat, via_lon in side_candidates:
+            via_url = (
+                f"https://router.project-osrm.org/route/v1/driving/"
+                f"{start_lon},{start_lat};{via_lon},{via_lat};{end_lon},{end_lat}"
+                f"?overview=full&geometries=geojson"
+            )
+            try:
+                resp = requests.get(via_url, timeout=10)
+                if resp.status_code == 200:
+                    raw_routes = resp.json().get("routes", [])
+                    if raw_routes:
+                        r = raw_routes[0]
+                        dist_meters = r.get("distance", 0.0)
+                        dur_seconds = r.get("duration", 0.0)
+                        coords = r.get("geometry", {}).get("coordinates", [])
+                        dist_miles = dist_meters * METERS_TO_MILES
+                        if _is_distinct_valid_corridor(
+                            coords, dist_miles, routes, direct_dist_miles, is_us_domestic
+                        ):
+                            idx = len(routes) + 1
+                            routes.append(
+                                _build_route_dict(
+                                    idx,
+                                    f"OSRM Highway Corridor via {label}",
+                                    "OSRM",
+                                    coords,
+                                    dist_meters,
+                                    dur_seconds,
+                                    step_miles,
+                                    departure_time,
+                                )
+                            )
+                            break
+            except Exception as e:
+                logger.warning(f"OSRM waypoint routing failed for {label}: {e}")
+
+    # If still fewer than 3 routes, try any remaining candidates from either side
+    if len(routes) < 3:
+        for label, via_lat, via_lon in pos_candidates + neg_candidates:
+            if len(routes) >= 3:
+                break
+            via_url = (
+                f"https://router.project-osrm.org/route/v1/driving/"
+                f"{start_lon},{start_lat};{via_lon},{via_lat};{end_lon},{end_lat}"
+                f"?overview=full&geometries=geojson"
+            )
+            try:
+                resp = requests.get(via_url, timeout=10)
+                if resp.status_code == 200:
+                    raw_routes = resp.json().get("routes", [])
+                    if raw_routes:
+                        r = raw_routes[0]
+                        dist_meters = r.get("distance", 0.0)
+                        dur_seconds = r.get("duration", 0.0)
+                        coords = r.get("geometry", {}).get("coordinates", [])
+                        dist_miles = dist_meters * METERS_TO_MILES
+                        if _is_distinct_valid_corridor(
+                            coords, dist_miles, routes, direct_dist_miles, is_us_domestic
+                        ):
+                            idx = len(routes) + 1
+                            routes.append(
+                                _build_route_dict(
+                                    idx,
+                                    f"OSRM Highway Corridor via {label}",
+                                    "OSRM",
+                                    coords,
+                                    dist_meters,
+                                    dur_seconds,
+                                    step_miles,
+                                    departure_time,
+                                )
+                            )
+            except Exception as e:
+                logger.warning(f"OSRM secondary waypoint routing failed for {label}: {e}")
+
+    if len(routes) >= 3:
+        return routes[:3]
+
+    return None
 
 
 def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[str] = None, dest_name: Optional[str] = None):
@@ -1138,6 +1394,11 @@ def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[st
             "US-97 S Central Cascade Inland Route",
             "US-101 Coastal Bypass Route",
         ],
+        "seattle->denver": [
+            "I-84 E & I-80 E Direct Freight Arterial (via Boise & Cheyenne)",
+            "I-90 E & I-25 S Northern Interstate Corridor (via Billings)",
+            "I-84 E & I-70 E Southern Rockies Corridor (via Salt Lake City)",
+        ],
         "mumbai->pune": [
             "Mumbai-Pune Expressway (Yashwantrao Chavan Arterial)",
             "Old Mumbai-Pune Highway (NH-48 Corridor)",
@@ -1158,6 +1419,19 @@ def assign_corridor_names(routes: List[Dict[str, Any]], origin_name: Optional[st
             for pos, r_idx in enumerate(order_by_lon):
                 routes[r_idx]["name"] = lon_names[pos]
                 routes[r_idx]["summary_title"] = f"Route {r_idx + 1}: {lon_names[pos]}"
+            return
+
+        if key == "seattle->denver":
+            # Sort by mean latitude: South (lowest lat) -> Central (Direct) -> North (highest lat)
+            order_by_lat = sorted(range(3), key=lambda idx: centroids[idx][0])
+            lat_names = [
+                "I-84 E & I-70 E Southern Rockies Corridor (via Salt Lake City)",
+                "I-84 E & I-80 E Direct Freight Arterial (via Boise & Cheyenne)",
+                "I-90 E & I-25 S Northern Interstate Corridor (via Billings)",
+            ]
+            for pos, r_idx in enumerate(order_by_lat):
+                routes[r_idx]["name"] = lat_names[pos]
+                routes[r_idx]["summary_title"] = f"Route {r_idx + 1}: {lat_names[pos]}"
             return
 
         if key not in KNOWN_CORRIDORS and rev_key not in KNOWN_CORRIDORS:
@@ -1202,12 +1476,12 @@ def get_three_alternative_routes(
     dest_name: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
-    Orchestrates fetching 3 distinct alternative routes with 100% parity between
-    local and cloud deployments:
+    Orchestrates fetching 3 genuine highway corridors with 100% unmodified GeoJSON road geometry
+    and true driving distances from ORS / OSRM:
     1. If explicit ors_api_key passed in request, try ORS first
-    2. Otherwise try public OSRM 3-corridor engine (identical on Local and Render without env keys)
+    2. Otherwise try public OSRM 3-corridor Interstate engine (identical on Local and Render)
     3. Fallback to ORS (if ORS_API_KEY in settings)
-    4. Fallback to curved simulated interstate corridors
+    4. Fallback to simulated corridors only when offline
     """
     routes: Optional[List[Dict[str, Any]]] = None
 
@@ -1234,11 +1508,9 @@ def get_three_alternative_routes(
     if not routes or len(routes) < 3:
         routes = generate_simulated_alternatives(start_lat, start_lon, end_lat, end_lon, step_miles, departure_time)
 
-    routes = ensure_distinct_corridor_geometries(
-        routes[:3], start_lat, start_lon, end_lat, end_lon, step_miles, departure_time
-    )
+    routes = routes[:3]
 
-    # Assign tailored dynamic corridor names based on cities
+    # Assign tailored dynamic corridor names based on cities and actual geographic position
     assign_corridor_names(routes, origin_name, dest_name)
     return routes
 
