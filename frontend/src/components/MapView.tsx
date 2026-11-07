@@ -44,7 +44,7 @@ const MAP_VIEW_OPTIONS: MapViewOption[] = [
   {
     id: "positron",
     name: "Clean Dispatch",
-    category: "Carto Positron",
+    category: "Desaturated Contrast",
     icon: "🏙️",
     description: "Soft contrast terrain optimized for route and heatmap clarity",
   },
@@ -65,7 +65,7 @@ const MAP_VIEW_OPTIONS: MapViewOption[] = [
   {
     id: "dark",
     name: "Night Operations",
-    category: "Dark Matter",
+    category: "Dark Mode",
     icon: "🌙",
     description: "Midnight dark mode making severe risk markers glow vividly",
   },
@@ -384,12 +384,12 @@ export const MapView: React.FC<MapViewProps> = ({
             onZoomOut={(fn) => { zoomOutRef.current = fn; }}
           />
 
-          {/* DYNAMIC BASE MAP TILE LAYERS */}
-          {/* 1. Clean Dispatch (Positron) */}
+          {/* DYNAMIC BASE MAP TILE LAYERS (100% Free, No Watermark, No API Key Required) */}
+          {/* 1. Clean Dispatch (Desaturated Soft Terrain) */}
           {mapStyle === "positron" && (
             <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               className="map-tiles-positron"
             />
           )}
@@ -409,6 +409,7 @@ export const MapView: React.FC<MapViewProps> = ({
               <TileLayer
                 attribution='&copy; Esri, Maxar, Earthstar Geographics'
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                className="map-tiles-satellite"
               />
               <TileLayer
                 attribution='&copy; Esri'
@@ -418,11 +419,12 @@ export const MapView: React.FC<MapViewProps> = ({
             </>
           )}
 
-          {/* 4. Night Operations (Dark Matter) */}
+          {/* 4. Night Operations (Dark Mode) */}
           {mapStyle === "dark" && (
             <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              className="map-tiles-dark"
             />
           )}
 

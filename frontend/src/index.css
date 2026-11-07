@@ -33,14 +33,24 @@ html, body, #root {
   font-family: inherit;
 }
 
-/* High-Level Positron Map Tile: Muted, low contrast, desaturated soft grey-blue */
+/* High-Level Clean Dispatch Map Tile: Desaturated soft grey-blue without any watermark */
 .map-tiles-positron img.leaflet-tile {
-  filter: grayscale(100%) contrast(1.08) brightness(1.05) opacity(0.9);
+  filter: grayscale(90%) contrast(1.02) brightness(1.06) opacity(0.95);
 }
 
 /* Satellite / Hybrid tile styling if toggled */
 .map-tiles-satellite img.leaflet-tile {
-  filter: contrast(1.1) brightness(0.95);
+  filter: contrast(1.08) brightness(0.98);
+}
+
+/* Night Operations (Dark Mode) tile styling: Midnight dispatch look without any watermark */
+.map-tiles-dark img.leaflet-tile {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.35) brightness(0.75);
+}
+
+/* 3D Topographic Terrain tile styling */
+.map-tiles-terrain img.leaflet-tile {
+  filter: contrast(1.04) brightness(1.02);
 }
 
 /* Hover Tooltip for Checkpoints: Dark glass pill HUD */
