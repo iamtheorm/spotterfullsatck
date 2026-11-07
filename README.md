@@ -35,7 +35,8 @@ Built with Django REST Framework on the backend and React (TypeScript, Vite, Tai
    - Top-down 18-wheeler tractor-trailer SVG asset with dynamic heading orientation, tandem axles, trailer ribbing, and forward headlight projection.
    - Dispatch telemetry HUD tracking simulation progress, elapsed travel time, and live wind speed.
 8. **Synthesized Air Horn (Web Audio API)**:
-   - Procedurally synthesizes a dual-pitch pneumatic brass tone when the simulation enters an 8,000-meter radius of upcoming checkpoints.
+   - Procedurally synthesizes a dual-pitch pneumatic brass tone when the simulation enters an 8,000-meter radius of checkpoints with High risk or above (High, Severe, No Travel).
+   - Low and Moderate risk sectors transition quietly with telemetry updates and zero horn noise.
    - Requires zero external audio file downloads or network requests.
 9. **Multi-Style Base Map Views and Viewport Clamping**:
    - 5 selectable base layers: Clean Dispatch, Topographic Terrain (with elevation hillshading), Satellite Hybrid (aerial imagery with highway vectors), Night Operations (dark mode), and Street Navigation (OpenStreetMap).

@@ -31,6 +31,7 @@ import {
   Moon,
   Map,
   Clock,
+  Shield,
 } from "lucide-react";
 import { playTruckAirHorn } from "../utils/audio";
 
@@ -389,7 +390,17 @@ export const MapView: React.FC<MapViewProps> = ({
       const dist = getDistanceMeters(truckState.lat, truckState.lon, cp.lat, cp.lon);
 
       if (dist < 8000) {
-        playTruckAirHorn();
+        const isHighRiskOrAbove =
+          cp.final_level === "High" ||
+          cp.final_level === "Severe" ||
+          cp.final_level === "No Travel" ||
+          cp.final_score >= 3;
+
+        // Sound the pneumatic air horn only in areas of high risk and above
+        if (isHighRiskOrAbove) {
+          playTruckAirHorn();
+        }
+
         setActivePopoverCP(cp);
         setPendingCheckpoints((prev) =>
           prev.filter((item) => item.index !== cp.index)
@@ -821,34 +832,63 @@ export const MapView: React.FC<MapViewProps> = ({
       </div>
 
       {/* 9. ACTIVE CHECKPOINT POPOVER WITH AIR HORN BLAST (Triggered during Simulation) */}
-      {activePopoverCP && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
-          <div className="bg-slate-900/95 text-white border-2 border-amber-400 rounded-2xl px-4 py-2.5 shadow-2xl backdrop-blur-md flex items-center space-x-3.5 animate-bounce">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/40">
-              <Volume2 className="w-4 h-4 animate-pulse" />
-            </div>
-            <div>
-              <div className="text-xs font-black flex items-center gap-2">
-                <span>Checkpoint #{activePopoverCP.index} ({distanceUnit === "km" ? `${Math.round(activePopoverCP.mile_marker * 1.60934)} km` : `${activePopoverCP.mile_marker} mi`})</span>
-                <span
-                  className={`px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase ${
-                    activePopoverCP.final_level === "Severe" || activePopoverCP.final_level === "No Travel"
-                      ? "bg-red-600 text-white"
-                      : activePopoverCP.final_level === "High"
-                      ? "bg-orange-500 text-white"
-                      : "bg-emerald-500 text-white"
-                  }`}
-                >
-                  {activePopoverCP.final_level} Risk
-                </span>
+      {activePopoverCP && (() => {
+        const isHighRiskOrAbove =
+          activePopoverCP.final_level === "High" ||
+          activePopoverCP.final_level === "Severe" ||
+          activePopoverCP.final_level === "No Travel" ||
+          activePopoverCP.final_score >= 3;
+
+        return (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto">
+            <div
+              className={`bg-slate-900/95 text-white border-2 rounded-2xl px-4 py-2.5 shadow-2xl backdrop-blur-md flex items-center space-x-3.5 ${
+                isHighRiskOrAbove ? "border-amber-400 animate-bounce" : "border-slate-700"
+              }`}
+            >
+              <div
+                className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
+                  isHighRiskOrAbove
+                    ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
+                    : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                }`}
+              >
+                {isHighRiskOrAbove ? (
+                  <Volume2 className="w-4 h-4 animate-pulse" />
+                ) : (
+                  <Shield className="w-4 h-4" />
+                )}
               </div>
-              <div className="text-[10px] text-slate-300 font-mono mt-0.5">
-                Wind: {activePopoverCP.weather?.wind_mph} mph • Rain: {activePopoverCP.weather?.rain_in_per_hr} in/hr • ETA {activePopoverCP.eta_formatted}
+              <div>
+                <div className="text-xs font-black flex items-center gap-2">
+                  <span>
+                    Checkpoint #{activePopoverCP.index} (
+                    {distanceUnit === "km"
+                      ? `${Math.round(activePopoverCP.mile_marker * 1.60934)} km`
+                      : `${activePopoverCP.mile_marker} mi`}
+                    )
+                  </span>
+                  <span
+                    className={`px-2 py-0.2 rounded-full text-[9px] font-extrabold uppercase ${
+                      activePopoverCP.final_level === "Severe" || activePopoverCP.final_level === "No Travel"
+                        ? "bg-red-600 text-white"
+                        : activePopoverCP.final_level === "High"
+                        ? "bg-orange-500 text-white"
+                        : "bg-emerald-500 text-white"
+                    }`}
+                  >
+                    {activePopoverCP.final_level} Risk
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-300 font-mono mt-0.5">
+                  Wind: {activePopoverCP.weather?.wind_mph} mph • Rain:{" "}
+                  {activePopoverCP.weather?.rain_in_per_hr} in/hr • ETA {activePopoverCP.eta_formatted}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 9b. LIVE DISPATCH SIMULATION TELEMETRY HUD (Active when truck is moving) */}
       {(isPlaying || simProgress > 0) && selectedRoute && (
