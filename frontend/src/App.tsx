@@ -110,119 +110,116 @@ export function App() {
   }, [forecastHour, evaluation]);
 
   return (
-    <div className="h-screen w-screen bg-slate-200/60 p-2 md:p-3.5 flex flex-col font-sans text-slate-900 overflow-hidden">
-      {/* Outer rounded app frame matching screenshot */}
-      <div className="flex-1 w-full h-full bg-[#f4f7fb] rounded-3xl shadow-xl border border-slate-300/80 flex flex-col overflow-hidden">
-        {/* Top Header: Application Title + Single Gear Settings Icon */}
-        <Header onOpenSettings={() => setIsRulesOpen(true)} />
+    <div className="h-screen w-screen bg-slate-100 flex flex-col font-sans text-slate-900 overflow-hidden">
+      {/* Top Header: Full-width Application Title + Single Gear Settings Icon */}
+      <Header onOpenSettings={() => setIsRulesOpen(true)} />
 
-        {/* Error notification banner if any */}
-        {error && (
-          <div className="mx-4 mt-2 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-700 hover:text-red-900 underline text-[11px] font-semibold"
-            >
-              Dismiss
-            </button>
+      {/* Error notification banner if any */}
+      {error && (
+        <div className="mx-4 mt-2 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between font-medium z-40 shrink-0 shadow-xs">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-        )}
+          <button
+            onClick={() => setError(null)}
+            className="text-red-700 hover:text-red-900 underline text-[11px] font-semibold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
-        {/* Main Content Area: Left Sidebar (Trip Details + Alternative Routes) & Full Height Map */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3.5 p-3.5 overflow-hidden">
-          {/* Left Column: Trip Details & Alternative Routes (4 cols) */}
-          <div className="lg:col-span-4 h-full flex flex-col gap-3.5 overflow-y-auto pr-1">
-            {/* Trip Details Card */}
-            <div className="shrink-0">
-              <InputPanel
-                onEvaluate={handleEvaluate}
-                isLoading={isLoading}
-                initialValues={formInputs}
-                hasEvaluatedRoutes={Boolean(evaluation && evaluation.routes && evaluation.routes.length > 0)}
-              />
-            </div>
+      {/* Main Full-Screen Layout: Docked Left Dispatch Sidebar & Edge-to-Edge Map */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        {/* Left Column: Docked Dispatch Sidebar */}
+        <div className="w-full lg:w-[420px] xl:w-[460px] shrink-0 h-full bg-white border-r border-slate-200 flex flex-col overflow-y-auto p-4 gap-3.5 z-20 shadow-xs">
+          {/* Trip Details Card */}
+          <div className="shrink-0">
+            <InputPanel
+              onEvaluate={handleEvaluate}
+              isLoading={isLoading}
+              initialValues={formInputs}
+              hasEvaluatedRoutes={Boolean(evaluation && evaluation.routes && evaluation.routes.length > 0)}
+            />
+          </div>
 
-            {/* Alternative Routes List (Visible once routes are evaluated) */}
-            {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
-              <div className="bg-white border border-slate-200/90 rounded-3xl p-4 shadow-xs flex flex-col gap-3">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className="text-xs font-black text-slate-900 tracking-tight">
-                      Alternative Routes ({evaluation.routes.length})
-                    </h3>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsComparisonOpen(true)}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 transition"
-                  >
-                    <SlidersHorizontal className="w-3 h-3" />
-                    <span>Compare</span>
-                  </button>
+          {/* Alternative Routes List (Visible once routes are evaluated) */}
+          {evaluation && evaluation.routes && evaluation.routes.length > 0 && (
+            <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-3.5 flex flex-col gap-3">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-xs font-black text-slate-900 tracking-tight">
+                    Alternative Routes ({evaluation.routes.length})
+                  </h3>
                 </div>
 
-                <div className="space-y-2.5">
-                  {evaluation.routes.map((route) => (
-                    <RouteCard
-                      key={route.id}
-                      route={route}
-                      isSelected={route.id === selectedRouteId}
-                      onSelect={() => {
-                        setSelectedRouteId(route.id);
-                        setSelectedRouteName(route.name);
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Proceed with Selected Route Button */}
                 <button
                   type="button"
                   onClick={() => setIsComparisonOpen(true)}
-                  className="w-full mt-1 py-3 px-4 rounded-2xl bg-[#101c38] hover:bg-[#0c162c] text-white flex items-center justify-center space-x-2 shadow-md transition hover:shadow-lg active:scale-95 group"
+                  className="text-[11px] text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 transition"
                 >
-                  <Truck className="w-4 h-4 text-sky-400 group-hover:translate-x-1 transition duration-200" />
-                  <span className="font-extrabold text-xs">Proceed with Selected Route</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+                  <SlidersHorizontal className="w-3 h-3" />
+                  <span>Compare</span>
                 </button>
               </div>
-            )}
-          </div>
 
-          {/* Right Column: Full-Height Interactive Map (8 cols) */}
-          <div className="lg:col-span-8 h-full min-h-[400px]">
-            <MapView
-              routes={evaluation?.routes || []}
-              selectedRouteId={selectedRouteId}
-              originName={evaluation?.origin?.name || formInputs.origin}
-              destinationName={evaluation?.destination?.name || formInputs.destination}
-              onSelectRoute={(id) => {
-                setSelectedRouteId(id);
-                const r = evaluation?.routes.find((item) => item.id === id);
-                if (r) setSelectedRouteName(r.name);
-              }}
-              onSelectCheckpoint={(cp) => {
-                setSelectedCheckpoint(cp);
-              }}
-              onOpenModal={(cp, rName) => {
-                setSelectedCheckpoint(cp);
-                setSelectedRouteName(rName);
-              }}
-              onOpenRules={() => setIsRulesOpen(true)}
-              corridorData={corridorData}
-              showHeatmap={showHeatmap}
-              onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
-              forecastHour={forecastHour}
-              onHourChange={setForecastHour}
-              isLoadingCorridor={isLoadingCorridor}
-              selectedCheckpoint={selectedCheckpoint}
-            />
-          </div>
+              <div className="space-y-2.5">
+                {evaluation.routes.map((route) => (
+                  <RouteCard
+                    key={route.id}
+                    route={route}
+                    isSelected={route.id === selectedRouteId}
+                    onSelect={() => {
+                      setSelectedRouteId(route.id);
+                      setSelectedRouteName(route.name);
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Proceed with Selected Route Button */}
+              <button
+                type="button"
+                onClick={() => setIsComparisonOpen(true)}
+                className="w-full mt-1 py-3 px-4 rounded-xl bg-[#101c38] hover:bg-[#0c162c] text-white flex items-center justify-center space-x-2 shadow-sm transition hover:shadow active:scale-95 group font-sans"
+              >
+                <Truck className="w-4 h-4 text-sky-400 group-hover:translate-x-1 transition duration-200" />
+                <span className="font-extrabold text-xs">Proceed with Selected Route</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Full-Bleed Edge-to-Edge Map Canvas */}
+        <div className="flex-1 h-full min-h-[400px] relative z-0">
+          <MapView
+            routes={evaluation?.routes || []}
+            selectedRouteId={selectedRouteId}
+            originName={evaluation?.origin?.name || formInputs.origin}
+            destinationName={evaluation?.destination?.name || formInputs.destination}
+            onSelectRoute={(id) => {
+              setSelectedRouteId(id);
+              const r = evaluation?.routes.find((item) => item.id === id);
+              if (r) setSelectedRouteName(r.name);
+            }}
+            onSelectCheckpoint={(cp) => {
+              setSelectedCheckpoint(cp);
+            }}
+            onOpenModal={(cp, rName) => {
+              setSelectedCheckpoint(cp);
+              setSelectedRouteName(rName);
+            }}
+            onOpenRules={() => setIsRulesOpen(true)}
+            corridorData={corridorData}
+            showHeatmap={showHeatmap}
+            onToggleHeatmap={() => setShowHeatmap(!showHeatmap)}
+            forecastHour={forecastHour}
+            onHourChange={setForecastHour}
+            isLoadingCorridor={isLoadingCorridor}
+            selectedCheckpoint={selectedCheckpoint}
+          />
         </div>
       </div>
 

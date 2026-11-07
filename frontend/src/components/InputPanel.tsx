@@ -103,7 +103,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   };
 
   return (
-    <div className="bg-white border border-slate-200/90 rounded-3xl p-5 shadow-xs flex flex-col justify-between h-full select-none">
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex flex-col justify-between h-full select-none">
       <div className="space-y-4">
         {/* Panel Header with Title & Embedded System Status Badge */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">

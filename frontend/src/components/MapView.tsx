@@ -346,7 +346,7 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [truckState, isPlaying, pendingCheckpoints]);
 
   return (
-    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 flex flex-col shadow-xs isolate">
+    <div className="relative w-full h-full overflow-hidden bg-slate-100 flex flex-col isolate">
       {/* 1. LEAFLET MAP CANVAS */}
       <div className="w-full h-full relative z-0">
         <MapContainer

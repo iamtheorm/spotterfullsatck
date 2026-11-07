@@ -7,8 +7,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
   return (
-    <header className="w-full bg-white border-b border-slate-200/90 relative z-30 select-none overflow-hidden shrink-0 shadow-2xs">
-      <div className="h-16 px-6 flex items-center justify-between bg-white">
+    <header className="w-full bg-white border-b border-slate-200 relative z-30 select-none shrink-0 shadow-2xs">
+      <div className="h-14 px-5 flex items-center justify-between bg-white">
         {/* Left Side: Brand Logo, Title, Tagline */}
         <div className="flex items-center space-x-3.5">
           {/* Commercial Vector Truck Logo */}
