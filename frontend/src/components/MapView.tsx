@@ -27,6 +27,10 @@ import {
   Compass,
   Check,
   Mountain,
+  Sun,
+  Satellite,
+  Moon,
+  Map,
 } from "lucide-react";
 import { playTruckAirHorn } from "../utils/audio";
 
@@ -36,7 +40,7 @@ interface MapViewOption {
   id: MapViewStyle;
   name: string;
   category: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
 }
 
@@ -45,35 +49,35 @@ const MAP_VIEW_OPTIONS: MapViewOption[] = [
     id: "positron",
     name: "Clean Dispatch",
     category: "Desaturated Contrast",
-    icon: "🏙️",
+    icon: Sun,
     description: "Soft contrast terrain optimized for route and heatmap clarity",
   },
   {
     id: "terrain",
     name: "Topographic Terrain",
     category: "Esri / USGS Topo",
-    icon: "⛰️",
+    icon: Mountain,
     description: "Shaded mountain relief, elevation curves, and topography",
   },
   {
     id: "satellite",
     name: "Satellite Hybrid",
     category: "High-Res Aerial",
-    icon: "🛰️",
+    icon: Satellite,
     description: "Photorealistic earth imagery with highway boundaries",
   },
   {
     id: "dark",
     name: "Night Operations",
     category: "Dark Mode",
-    icon: "🌙",
+    icon: Moon,
     description: "Midnight dark mode making severe risk markers glow vividly",
   },
   {
     id: "osm",
     name: "Street Navigation",
     category: "OpenStreetMap",
-    icon: "🗺️",
+    icon: Map,
     description: "Standard road atlas showing junctions and regional exits",
   },
 ];
@@ -685,8 +689,12 @@ export const MapView: React.FC<MapViewProps> = ({
                             : "hover:bg-slate-50 text-slate-700"
                         }`}
                       >
-                        <div className="flex items-start space-x-2">
-                          <span className="text-base mt-0.5">{opt.icon}</span>
+                        <div className="flex items-start space-x-2.5">
+                          <div className={`p-1.5 rounded-lg mt-0.5 ${
+                            isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
+                          }`}>
+                            <opt.icon className="w-3.5 h-3.5" />
+                          </div>
                           <div>
                             <div className="font-bold text-xs flex items-center gap-1">
                               <span>{opt.name}</span>

@@ -53,7 +53,7 @@ export const BottomRouteComparison: React.FC<BottomRouteComparisonProps> = ({
               title="Test Truck Pneumatic Air Horn"
             >
               <Volume2 className="w-4 h-4 text-amber-500" />
-              <span>Air Horn 📢</span>
+              <span>Air Horn</span>
             </button>
           </div>
         </div>

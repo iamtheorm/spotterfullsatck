@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RotateCcw,
+  ChevronDown,
 } from "lucide-react";
 import { RouteEvaluationRequest } from "../types";
 import { CityAutocomplete } from "./CityAutocomplete";
@@ -26,13 +27,13 @@ interface InputPanelProps {
 }
 
 const REGION_OPTIONS = [
-  { code: "ALL", label: "Global / All Regions", flag: "🌐" },
-  { code: "US", label: "United States (US)", flag: "🇺🇸" },
-  { code: "IN", label: "India (IN)", flag: "🇮🇳" },
-  { code: "CA", label: "Canada (CA)", flag: "🇨🇦" },
-  { code: "GB", label: "United Kingdom (GB)", flag: "🇬🇧" },
-  { code: "DE", label: "Germany (DE)", flag: "🇩🇪" },
-  { code: "AU", label: "Australia (AU)", flag: "🇦🇺" },
+  { code: "ALL", label: "Global / All Regions" },
+  { code: "US", label: "United States (US)" },
+  { code: "IN", label: "India (IN)" },
+  { code: "CA", label: "Canada (CA)" },
+  { code: "GB", label: "United Kingdom (GB)" },
+  { code: "DE", label: "Germany (DE)" },
+  { code: "AU", label: "Australia (AU)" },
 ];
 
 export const InputPanel: React.FC<InputPanelProps> = ({
@@ -178,12 +179,12 @@ export const InputPanel: React.FC<InputPanelProps> = ({
               >
                 {REGION_OPTIONS.map((opt) => (
                   <option key={opt.code} value={opt.code}>
-                    {opt.flag} {opt.label}
+                    {opt.label}
                   </option>
                 ))}
               </select>
-              <div className="absolute right-3 top-2.5 pointer-events-none text-slate-400 text-xs">
-                ▼
+              <div className="absolute right-3 top-2.5 pointer-events-none text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
               </div>
             </div>
           </div>
