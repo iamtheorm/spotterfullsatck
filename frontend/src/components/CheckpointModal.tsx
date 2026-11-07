@@ -9,12 +9,14 @@ import {
   AlertTriangle,
   Weight,
 } from "lucide-react";
-import { Checkpoint, RiskLevel } from "../types";
+import { Checkpoint, RiskLevel, DistanceUnit, WeightUnit } from "../types";
 
 interface CheckpointModalProps {
   checkpoint: Checkpoint | null;
   onClose: () => void;
   routeName?: string;
+  distanceUnit?: DistanceUnit;
+  weightUnit?: WeightUnit;
 }
 
 const getBadgeClasses = (level: RiskLevel) => {
@@ -36,6 +38,8 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
   checkpoint,
   onClose,
   routeName,
+  distanceUnit = "mi",
+  weightUnit = "lbs",
 }) => {
   if (!checkpoint) return null;
 
@@ -51,6 +55,18 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
     load_weight_lbs,
     active_overrides,
   } = checkpoint;
+
+  const checkpointLabel = distanceUnit === "km"
+    ? `Checkpoint @ ${Math.round(mile_marker * 1.60934)} km`
+    : `Checkpoint @ Mile ${mile_marker}`;
+
+  const weightLabel = weightUnit === "kg"
+    ? `${Math.round(load_weight_lbs / 2.20462).toLocaleString()} kg`
+    : `${load_weight_lbs.toLocaleString()} lbs`;
+
+  const windSpeedLabel = distanceUnit === "km"
+    ? `${Math.round(weather.wind_mph * 1.60934)} km/h`
+    : `${weather.wind_mph} mph`;
 
   return (
     <div className="fixed inset-0 z-[9999] overflow-hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -73,7 +89,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="text-base font-bold text-slate-900">
-                Checkpoint @ Mile {mile_marker}
+                {checkpointLabel}
               </h3>
               <span
                 className={`text-xs px-2.5 py-0.5 rounded-full uppercase border ${getBadgeClasses(
@@ -108,7 +124,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
                 Gross Weight
               </div>
               <div className="font-bold text-slate-900">
-                {load_weight_lbs.toLocaleString()} lbs
+                {weightLabel}
               </div>
             </div>
           </div>
@@ -127,7 +143,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
                 <span>Wind</span>
               </div>
               <div className="text-base font-bold text-slate-900 font-mono">
-                {weather.wind_mph} <span className="text-xs font-normal text-slate-500">mph</span>
+                {windSpeedLabel}
               </div>
               <span
                 className={`inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded border ${getBadgeClasses(

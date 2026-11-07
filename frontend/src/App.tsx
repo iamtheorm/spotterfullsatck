@@ -454,6 +454,8 @@ export function App() {
         checkpoint={selectedCheckpoint}
         onClose={() => setSelectedCheckpoint(null)}
         routeName={selectedRouteName}
+        distanceUnit={distanceUnit}
+        weightUnit={weightUnit}
       />
 
       {/* Settings / Risk Rules Drawer */}

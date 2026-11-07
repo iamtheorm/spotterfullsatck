@@ -40,47 +40,15 @@ export type MapViewStyle = "positron" | "terrain" | "satellite" | "dark" | "osm"
 interface MapViewOption {
   id: MapViewStyle;
   name: string;
-  category: string;
   icon: React.ComponentType<{ className?: string }>;
-  description: string;
 }
 
 const MAP_VIEW_OPTIONS: MapViewOption[] = [
-  {
-    id: "positron",
-    name: "Clean Dispatch",
-    category: "Desaturated Contrast",
-    icon: Sun,
-    description: "Soft contrast terrain optimized for route and heatmap clarity",
-  },
-  {
-    id: "terrain",
-    name: "Topographic Terrain",
-    category: "Esri / USGS Topo",
-    icon: Mountain,
-    description: "Shaded mountain relief, elevation curves, and topography",
-  },
-  {
-    id: "satellite",
-    name: "Satellite Hybrid",
-    category: "High-Res Aerial",
-    icon: Satellite,
-    description: "Photorealistic earth imagery with highway boundaries",
-  },
-  {
-    id: "dark",
-    name: "Night Operations",
-    category: "Dark Mode",
-    icon: Moon,
-    description: "Midnight dark mode making severe risk markers glow vividly",
-  },
-  {
-    id: "osm",
-    name: "Street Navigation",
-    category: "OpenStreetMap",
-    icon: Map,
-    description: "Standard road atlas showing junctions and regional exits",
-  },
+  { id: "positron", name: "Clean Dispatch", icon: Sun },
+  { id: "terrain", name: "Topographic Terrain", icon: Mountain },
+  { id: "satellite", name: "Satellite Hybrid", icon: Satellite },
+  { id: "dark", name: "Night Operations", icon: Moon },
+  { id: "osm", name: "Street Navigation", icon: Map },
 ];
 
 interface MapViewProps {
@@ -759,14 +727,14 @@ export const MapView: React.FC<MapViewProps> = ({
 
             {/* Dropdown Menu for Base Maps & Overlays */}
             {isLayersMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 z-[1100] text-xs">
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 z-[1100] text-xs">
                 {/* 1. Base Map Views */}
-                <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="px-2 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center justify-between">
                   <span>Base Map Views</span>
                   <Compass className="w-3 h-3 text-slate-400" />
                 </div>
 
-                <div className="space-y-1 mt-1">
+                <div className="space-y-0.5 mt-1">
                   {MAP_VIEW_OPTIONS.map((opt) => {
                     const isSelected = mapStyle === opt.id;
                     return (
@@ -777,59 +745,49 @@ export const MapView: React.FC<MapViewProps> = ({
                           setMapStyle(opt.id);
                           setIsLayersMenuOpen(false);
                         }}
-                        className={`w-full px-2.5 py-2 rounded-xl text-left flex items-start justify-between transition ${
+                        className={`w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between transition ${
                           isSelected
-                            ? "bg-blue-50 text-blue-900 border border-blue-200"
-                            : "hover:bg-slate-50 text-slate-700"
+                            ? "bg-blue-50 text-blue-900 font-bold"
+                            : "hover:bg-slate-50 text-slate-700 font-semibold"
                         }`}
                       >
-                        <div className="flex items-start space-x-2.5">
-                          <div className={`p-1.5 rounded-lg mt-0.5 ${
+                        <div className="flex items-center space-x-2.5">
+                          <div className={`p-1.5 rounded-lg ${
                             isSelected ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
                           }`}>
                             <opt.icon className="w-3.5 h-3.5" />
                           </div>
-                          <div>
-                            <div className="font-bold text-xs flex items-center gap-1">
-                              <span>{opt.name}</span>
-                              <span className="text-[10px] text-slate-400 font-normal">
-                                ({opt.category})
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-500 leading-tight">
-                              {opt.description}
-                            </div>
-                          </div>
+                          <span className="text-xs">{opt.name}</span>
                         </div>
 
                         {isSelected && (
-                          <Check className="w-4 h-4 text-blue-600 shrink-0 mt-1" />
+                          <Check className="w-4 h-4 text-blue-600 shrink-0" />
                         )}
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="my-2 border-t border-slate-100"></div>
+                <div className="my-1.5 border-t border-slate-100"></div>
 
                 {/* 2. Layer Overlays */}
-                <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                <div className="px-2 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                   Layer Overlays
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {/* Weather Heatmap Toggle */}
                   <button
                     type="button"
                     onClick={() => onToggleHeatmap()}
-                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
+                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50 font-semibold"
                   >
-                    <span className="flex items-center gap-2 font-medium">
+                    <span className="flex items-center gap-2 text-xs">
                       <CloudSun className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Weather Thermal Heatmap</span>
+                      <span>Weather Heatmap</span>
                     </span>
                     <span
-                      className={`w-2.5 h-2.5 rounded-full ${
+                      className={`w-2 h-2 rounded-full ${
                         showHeatmap ? "bg-emerald-500 ring-2 ring-emerald-200" : "bg-slate-300"
                       }`}
                     ></span>
@@ -839,14 +797,14 @@ export const MapView: React.FC<MapViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowCheckpoints(!showCheckpoints)}
-                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
+                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50 font-semibold"
                   >
-                    <span className="flex items-center gap-2 font-medium">
-                      <span className="w-3 h-3 rounded-full bg-red-500 inline-block"></span>
+                    <span className="flex items-center gap-2 text-xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>
                       <span>Risk Checkpoints</span>
                     </span>
                     <span
-                      className={`w-2.5 h-2.5 rounded-full ${
+                      className={`w-2 h-2 rounded-full ${
                         showCheckpoints ? "bg-emerald-500 ring-2 ring-emerald-200" : "bg-slate-300"
                       }`}
                     ></span>
