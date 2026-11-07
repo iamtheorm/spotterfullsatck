@@ -25,17 +25,29 @@ Built with **Django REST Framework (DRF)** on the backend and **React (Vite + Ty
 
 ## 🌟 Key Features
 
-1. **Multi-Alternative Route Generation**: Generates 3 distinct route corridors between any origin and destination worldwide (including major US interstate freight corridors and Indian national expressways like Delhi → Kanpur and Delhi → Lucknow).
-2. **Deterministic Checkpoint Discretization**: Samples geographic checkpoints strictly every **10, 25, or 50 miles** along each route polyline.
-3. **Accurate Timestamp ETAs**: Calculates arrival time ($T_{arr} = T_{dep} + \Delta t_i$) for every single checkpoint using cumulative segment distance and driving duration.
-4. **ETA-Specific Weather Forecasting**: Fetches wind speed (mph), rain rate (in/hr), and snowfall rate (in/hr) matching the exact arrival hour at each checkpoint via **Open-Meteo**.
-5. **Dynamic Load Weight Overrides**: Applies commercial trucking physics:
+1. **Multi-Alternative Route Generation**: Generates 3 distinct route corridors between any origin and destination worldwide (including major US interstate freight corridors and international routes like Delhi → Kanpur).
+2. **Cascading Country-Filtered Autocomplete**: Asynchronous geocoding with a 300ms debounce and country filtering (e.g. `countrycodes=us,ca,in`), returning `"City, State/Province, Country"` and exact coordinates.
+3. **Deterministic Checkpoint Discretization**: Samples geographic checkpoints strictly every **10, 25, or 50 miles** along each route polyline.
+4. **Accurate Timestamp ETAs**: Calculates arrival time ($T_{arr} = T_{dep} + \Delta t_i$) for every checkpoint using cumulative segment distance and driving duration.
+5. **ETA-Specific Weather Forecasting**: Fetches wind speed, rain rate, and snowfall rate matching the exact arrival hour at each checkpoint via **Open-Meteo**.
+6. **Dynamic Load Weight Overrides**: Applies commercial trucking rollover physics:
    - Wind $\ge 55\text{ mph}$ $\implies$ **No Travel** for any vehicle.
    - Wind $45\text{--}54\text{ mph}$ with Load Weight $> 30{,}000\text{ lbs}$ $\implies$ **No Travel**.
    - Wind $35\text{--}44\text{ mph}$ with Load Weight $> 40{,}000\text{ lbs}$ $\implies$ **Severe**.
-6. **Multi-Criteria Route Ranking**: Automatically sorts and identifies the safest route using strict hierarchical safety prioritization.
-7. **Enterprise Dispatch UI & Interactive Map**: High-contrast Positron navigation map with glowing recommended route, single-chain checkpoint hierarchy, floating HUDs, quick presets, and an interactive **0–48 hour forecast evolution scrubber**.
-8. **Resilient Dual-Routing & Keyless Out-of-the-Box Operation**: Zero external API key dependencies required for immediate local testing, with optional **OpenRouteService (ORS)** API key support.
+7. **Class 8 Commercial Semi-Truck Simulation**:
+   - High-fidelity top-down 18-wheeler SVG sprite with dynamic heading orientation, curved trailer ribs, and forward-projecting headlight beams.
+   - Live telemetry HUD displaying simulation progress, elapsed travel time, and live wind speed.
+8. **Synthesized Pneumatic Air Horn (Web Audio API)**:
+   - Automatically triggers a Grover/Nathan-style dual-tone brass pneumatic blast when the truck enters an 8,000m radius of upcoming checkpoints.
+   - Requires zero external audio downloads or network overhead.
+9. **Multi-Style Base Map Views & Clamped Viewport**:
+   - 5 selectable map layers: **Clean Dispatch**, **Topographic Terrain** (with elevation hillshading), **Satellite Hybrid** (high-res aerial imagery + road labels), **Night Operations** (dark mode), and **Street Navigation** (OSM).
+   - Viewport clamped with `minZoom={3}`, `maxBounds`, and `worldCopyJump` to eliminate tile repeating and polar voids.
+10. **Dynamic Unit Switching (Imperial / Metric)**:
+    - Live switching for Distance (`mi` / `km`) and Load Weight (`lbs` / `kg`) with live bi-directional conversions.
+11. **Hourly Weather Corridor Heatmap**:
+    - Synchronizes corridor weather risk cells with the truck's simulation hour ($0\text{--}48\text{h}$).
+12. **Multi-Criteria Route Ranking**: Automatically sorts and identifies the safest route using strict hierarchical safety prioritization.
 
 ---
 
@@ -172,6 +184,28 @@ The top-ranked route is tagged as `is_recommended: true` and rendered with a dis
 │           └── RiskRulesDrawer.tsx# Risk rule specification guide
 └── README.md
 ```
+
+---
+
+## ⚡ Engineering Improvements: UX, Performance & Accuracy
+
+### 1. User Experience (UX) Enhancements
+- **Edge-to-Edge Layout**: Replaced cramped nested cards with a full-bleed map canvas and compact, ergonomic HUD controls.
+- **Consistent Metric Alignment**: Standardized route card stats with a 2-row layout (Values & Icons on top, Sub-labels on bottom) and `whitespace-nowrap` to prevent awkward line breaks on distance and ETA values.
+- **Zero Collision Viewport**: Clamped map bounds (`minZoom={3}`, `maxBounds`) to stop Web Mercator world repetition and polar void exposure, and removed overlapping floating badges.
+- **Zero-Emoji Professional Polish**: Replaced emojis and informal badge graphics with high-clarity SVG iconography from `lucide-react`.
+
+### 2. Performance Optimizations
+- **Client-Side Sound Synthesis**: Implemented the truck air horn via the **Web Audio API** with dual oscillators, lowpass filtering, and exponential gain curves. Delivers instantaneous playback with zero network overhead.
+- **requestAnimationFrame Animation Loop**: Powered simulation through standard browser animation frames with delta-time normalization, eliminating CPU stutter and timer drifts.
+- **Debounced Geocoding**: 300ms debounce on input fields prevents API spam and query throttling on OpenStreetMap Nominatim.
+- **Batch Weather Requests & LRU Caching**: Clustered coordinate requests into single-roundtrip Open-Meteo queries, cached in memory for sub-second repeat queries.
+
+### 3. Routing & Risk Accuracy
+- **Point-in-Time Checkpoint ETAs**: Checkpoint forecasts query the weather model at the truck's *exact arrival hour* ($T_{\text{arr}} = T_{\text{dep}} + \sum \Delta t$) rather than assuming departure weather remains constant throughout a 15-hour trip.
+- **Crosswind Rollover Physics**: Applies empirical gross vehicle weight rules, protecting lightly-loaded trailers from sudden jackknifing and rollover gusts.
+- **Hierarchical Safety Prioritization**: Lexicographical route sorting guarantees that human life and cargo safety take strict precedence over travel speed:
+  $$\text{Fewest Severe Miles} \implies \text{Fewest High Miles} \implies \text{Lowest Avg Risk} \implies \text{Shortest Duration}$$
 
 ---
 
