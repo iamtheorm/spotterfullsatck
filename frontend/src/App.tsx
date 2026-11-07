@@ -15,16 +15,142 @@ import {
 import { evaluateRoutes, fetchCorridorForecast } from "./services/api";
 import { AlertCircle, SlidersHorizontal, ArrowRight, Truck } from "lucide-react";
 
+function detectCountryCode(text?: string): string | null {
+  if (!text) return null;
+  const t = text.toLowerCase();
+  if (
+    t.includes("india") ||
+    t.includes("delhi") ||
+    t.includes("kanpur") ||
+    t.includes("mumbai") ||
+    t.includes("noida") ||
+    t.includes("lucknow") ||
+    t.includes("bengaluru") ||
+    t.includes("bangalore") ||
+    t.includes("agra") ||
+    t.includes("jaipur") ||
+    t.includes("chennai") ||
+    t.includes("kolkata") ||
+    t.includes(", in")
+  ) {
+    return "IN";
+  }
+  if (
+    t.includes("canada") ||
+    t.includes("toronto") ||
+    t.includes("montreal") ||
+    t.includes("vancouver") ||
+    t.includes("calgary") ||
+    t.includes("ottawa") ||
+    t.includes(", ca")
+  ) {
+    return "CA";
+  }
+  if (
+    t.includes("united kingdom") ||
+    t.includes("london") ||
+    t.includes("manchester") ||
+    t.includes("birmingham") ||
+    t.includes(", gb") ||
+    t.includes(", uk")
+  ) {
+    return "GB";
+  }
+  if (
+    t.includes("germany") ||
+    t.includes("berlin") ||
+    t.includes("munich") ||
+    t.includes("frankfurt") ||
+    t.includes("hamburg") ||
+    t.includes(", de")
+  ) {
+    return "DE";
+  }
+  if (
+    t.includes("australia") ||
+    t.includes("sydney") ||
+    t.includes("melbourne") ||
+    t.includes("brisbane") ||
+    t.includes("perth") ||
+    t.includes(", au")
+  ) {
+    return "AU";
+  }
+  if (
+    t.includes("usa") ||
+    t.includes("united states") ||
+    t.includes("chicago") ||
+    t.includes("dallas") ||
+    t.includes("new york") ||
+    t.includes("los angeles") ||
+    t.includes("houston") ||
+    t.includes("phoenix") ||
+    t.includes("miami") ||
+    t.includes(", us") ||
+    t.includes(", il") ||
+    t.includes(", tx")
+  ) {
+    return "US";
+  }
+  return null;
+}
+
 export function App() {
-  const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
+  // Region filter state with local persistence
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    try {
+      const stored = localStorage.getItem("spotter_region");
+      if (stored) return stored;
+    } catch {}
+    return "US";
+  });
+
+  // Form input state with local persistence
+  const [formInputs, setFormInputs] = useState<Partial<RouteEvaluationRequest>>(() => {
+    try {
+      const stored = localStorage.getItem("spotter_form_inputs");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return {
+      origin: "Chicago, IL",
+      destination: "Dallas, TX",
+      load_weight: 34000,
+      step_miles: 25,
+    };
+  });
+
+  // Active evaluation response state with local persistence
+  const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(() => {
+    try {
+      const stored = localStorage.getItem("spotter_evaluation");
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedRouteId, setSelectedRouteId] = useState<string>("");
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(() => {
+    if (evaluation?.routes && evaluation.routes.length > 0) {
+      const recommended =
+        evaluation.routes.find((r) => r.is_recommended) || evaluation.routes[0];
+      return recommended.id;
+    }
+    return "";
+  });
+
   const [selectedCheckpoint, setSelectedCheckpoint] = useState<Checkpoint | null>(
     null
   );
-  const [selectedRouteName, setSelectedRouteName] = useState<string>("");
+  const [selectedRouteName, setSelectedRouteName] = useState<string>(() => {
+    if (evaluation?.routes && evaluation.routes.length > 0) {
+      const recommended =
+        evaluation.routes.find((r) => r.is_recommended) || evaluation.routes[0];
+      return recommended.name;
+    }
+    return "";
+  });
 
   const [isRulesOpen, setIsRulesOpen] = useState<boolean>(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState<boolean>(false);
@@ -33,19 +159,35 @@ export function App() {
   const [forecastHour, setForecastHour] = useState<number>(0);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
   const [corridorData, setCorridorData] = useState<CorridorData | undefined>(
-    undefined
+    evaluation?.corridor
   );
   const [isLoadingCorridor, setIsLoadingCorridor] = useState<boolean>(false);
 
-  // Form input state
-  const [formInputs, setFormInputs] = useState<Partial<RouteEvaluationRequest>>({
-    origin: "Chicago, IL",
-    destination: "Dallas, TX",
-    load_weight: 34000,
-    step_miles: 25,
-  });
-
   const corridorDebounceRef = useRef<any>(null);
+
+  const handleRegionChange = (newRegion: string) => {
+    setSelectedRegion(newRegion);
+    try {
+      localStorage.setItem("spotter_region", newRegion);
+    } catch {}
+  };
+
+  const handleResetAll = () => {
+    try {
+      localStorage.removeItem("spotter_evaluation");
+      localStorage.removeItem("spotter_form_inputs");
+    } catch {}
+    setEvaluation(null);
+    setSelectedRouteId("");
+    setSelectedRouteName("");
+    setCorridorData(undefined);
+    setFormInputs({
+      origin: "",
+      destination: "",
+      load_weight: 34000,
+      step_miles: 25,
+    });
+  };
 
   // Handle route evaluation submission
   const handleEvaluate = async (req: RouteEvaluationRequest) => {
@@ -54,9 +196,51 @@ export function App() {
     setSelectedCheckpoint(null);
     setForecastHour(0);
 
+    // Save submitted input immediately
+    setFormInputs(req);
+    try {
+      localStorage.setItem("spotter_form_inputs", JSON.stringify(req));
+    } catch {}
+
+    // Auto-detect or sync region from the submitted inputs
+    const detected = detectCountryCode(req.origin) || detectCountryCode(req.destination);
+    if (detected) {
+      setSelectedRegion(detected);
+      try {
+        localStorage.setItem("spotter_region", detected);
+      } catch {}
+    }
+
     try {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
+      try {
+        localStorage.setItem("spotter_evaluation", JSON.stringify(data));
+      } catch {}
+
+      // Keep form inputs aligned with resolved display names
+      const resolvedInputs: Partial<RouteEvaluationRequest> = {
+        ...req,
+        origin: data.origin?.name || req.origin,
+        destination: data.destination?.name || req.destination,
+      };
+      setFormInputs(resolvedInputs);
+      try {
+        localStorage.setItem("spotter_form_inputs", JSON.stringify(resolvedInputs));
+      } catch {}
+
+      // Also ensure detected country code matches resolved origin/destination
+      const resolvedDetected =
+        detectCountryCode(data.origin?.name) ||
+        detectCountryCode(data.destination?.name) ||
+        detected;
+      if (resolvedDetected) {
+        setSelectedRegion(resolvedDetected);
+        try {
+          localStorage.setItem("spotter_region", resolvedDetected);
+        } catch {}
+      }
+
       if (data.routes && data.routes.length > 0) {
         const recommended =
           data.routes.find((r) => r.is_recommended) || data.routes[0];
@@ -141,6 +325,9 @@ export function App() {
               isLoading={isLoading}
               initialValues={formInputs}
               hasEvaluatedRoutes={Boolean(evaluation && evaluation.routes && evaluation.routes.length > 0)}
+              selectedRegion={selectedRegion}
+              onRegionChange={handleRegionChange}
+              onReset={handleResetAll}
             />
           </div>
 
@@ -197,8 +384,8 @@ export function App() {
           <MapView
             routes={evaluation?.routes || []}
             selectedRouteId={selectedRouteId}
-            originName={evaluation?.origin?.name || formInputs.origin}
-            destinationName={evaluation?.destination?.name || formInputs.destination}
+            originName={evaluation?.origin?.name || formInputs.origin || "Origin"}
+            destinationName={evaluation?.destination?.name || formInputs.destination || "Destination"}
             onSelectRoute={(id) => {
               setSelectedRouteId(id);
               const r = evaluation?.routes.find((item) => item.id === id);

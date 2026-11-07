@@ -208,8 +208,8 @@ export const MapView: React.FC<MapViewProps> = ({
   showHeatmap,
   onToggleHeatmap,
   selectedCheckpoint,
-  originName = "Chicago",
-  destinationName = "Dallas",
+  originName = "Origin",
+  destinationName = "Destination",
 }) => {
   // Map View Mode: 3D Topo Terrain, Satellite Hybrid, Clean Dispatch, Night Ops, OSM Streets
   const [mapStyle, setMapStyle] = useState<MapViewStyle>("positron");

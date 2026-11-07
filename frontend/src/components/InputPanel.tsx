@@ -20,6 +20,9 @@ interface InputPanelProps {
   isLoading: boolean;
   initialValues?: Partial<RouteEvaluationRequest>;
   hasEvaluatedRoutes?: boolean;
+  selectedRegion?: string;
+  onRegionChange?: (region: string) => void;
+  onReset?: () => void;
 }
 
 const REGION_OPTIONS = [
@@ -37,12 +40,13 @@ export const InputPanel: React.FC<InputPanelProps> = ({
   isLoading,
   initialValues,
   hasEvaluatedRoutes = false,
+  selectedRegion = "US",
+  onRegionChange,
+  onReset,
 }) => {
-  const [selectedRegion, setSelectedRegion] = useState<string>("US");
-
-  const [origin, setOrigin] = useState(initialValues?.origin || "Chicago, IL");
+  const [origin, setOrigin] = useState(initialValues?.origin || "");
   const [destination, setDestination] = useState(
-    initialValues?.destination || "Dallas, TX"
+    initialValues?.destination || ""
   );
 
   const getDefaultDeparture = () => {
@@ -64,13 +68,30 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     initialValues?.step_miles || 25
   );
 
+  // Sync internal form inputs when parent initialValues update
   React.useEffect(() => {
-    if (initialValues?.origin) setOrigin(initialValues.origin);
-    if (initialValues?.destination) setDestination(initialValues.destination);
-    if (initialValues?.load_weight)
+    if (initialValues?.origin !== undefined && initialValues.origin !== origin) {
+      setOrigin(initialValues.origin);
+    }
+    if (initialValues?.destination !== undefined && initialValues.destination !== destination) {
+      setDestination(initialValues.destination);
+    }
+    if (initialValues?.load_weight !== undefined) {
       setLoadWeight(initialValues.load_weight.toString());
-    if (initialValues?.step_miles) setStepMiles(initialValues.step_miles);
-  }, [initialValues]);
+    }
+    if (initialValues?.step_miles !== undefined) {
+      setStepMiles(initialValues.step_miles);
+    }
+    if (initialValues?.departure_time !== undefined) {
+      setDepartureTime(initialValues.departure_time.slice(0, 16));
+    }
+  }, [
+    initialValues?.origin,
+    initialValues?.destination,
+    initialValues?.load_weight,
+    initialValues?.step_miles,
+    initialValues?.departure_time,
+  ]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +121,9 @@ export const InputPanel: React.FC<InputPanelProps> = ({
     setLoadWeight("34000");
     setStepMiles(25);
     setDepartureTime(getDefaultDeparture());
+    if (onReset) {
+      onReset();
+    }
   };
 
   return (
@@ -149,7 +173,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             <div className="relative">
               <select
                 value={selectedRegion}
-                onChange={(e) => setSelectedRegion(e.target.value)}
+                onChange={(e) => onRegionChange && onRegionChange(e.target.value)}
                 className="w-full appearance-none bg-slate-50 hover:bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-2xs cursor-pointer"
               >
                 {REGION_OPTIONS.map((opt) => (
@@ -170,7 +194,15 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             value={origin}
             country={selectedRegion}
             required
-            onChange={(val) => setOrigin(val)}
+            onChange={(val, suggestion) => {
+              setOrigin(val);
+              if (suggestion?.country_code && onRegionChange) {
+                const code = suggestion.country_code.toUpperCase();
+                if (REGION_OPTIONS.some((r) => r.code === code)) {
+                  onRegionChange(code);
+                }
+              }
+            }}
             placeholder={
               selectedRegion === "IN"
                 ? "Delhi, Noida, Mumbai..."
@@ -196,7 +228,15 @@ export const InputPanel: React.FC<InputPanelProps> = ({
             value={destination}
             country={selectedRegion}
             required
-            onChange={(val) => setDestination(val)}
+            onChange={(val, suggestion) => {
+              setDestination(val);
+              if (suggestion?.country_code && onRegionChange) {
+                const code = suggestion.country_code.toUpperCase();
+                if (REGION_OPTIONS.some((r) => r.code === code)) {
+                  onRegionChange(code);
+                }
+              }
+            }}
             placeholder={
               selectedRegion === "IN"
                 ? "Kanpur, Lucknow, Agra..."
