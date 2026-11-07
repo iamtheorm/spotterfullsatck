@@ -211,11 +211,8 @@ export const MapView: React.FC<MapViewProps> = ({
   originName = "Chicago",
   destinationName = "Dallas",
 }) => {
-  // Map View Mode: Positron, 3D Topo Terrain, Satellite Hybrid, Night Ops, OSM Streets
+  // Map View Mode: 3D Topo Terrain, Satellite Hybrid, Clean Dispatch, Night Ops, OSM Streets
   const [mapStyle, setMapStyle] = useState<MapViewStyle>("positron");
-
-  // 3D Perspective Tilt Mode State
-  const [is3DMode, setIs3DMode] = useState<boolean>(false);
 
   const [showCheckpoints, setShowCheckpoints] = useState(true);
   const [recenterCount, setRecenterCount] = useState(0);
@@ -349,23 +346,9 @@ export const MapView: React.FC<MapViewProps> = ({
   }, [truckState, isPlaying, pendingCheckpoints]);
 
   return (
-    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-900 flex flex-col shadow-xs isolate">
-      {/* 3D Atmospheric Horizon Glow when 3D Mode is Active */}
-      {is3DMode && (
-        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-sky-950/70 via-sky-900/20 to-transparent pointer-events-none z-10" />
-      )}
-
-      {/* 1. LEAFLET MAP CANVAS WITH DYNAMIC 3D PERSPECTIVE TRANSFORM */}
-      <div
-        className="w-full h-full relative z-0 transition-transform duration-700 ease-out origin-bottom"
-        style={
-          is3DMode
-            ? {
-                transform: "perspective(1100px) rotateX(28deg) translateY(-2%) scale(1.05)",
-              }
-            : undefined
-        }
-      >
+    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-slate-200/90 bg-slate-100 flex flex-col shadow-xs isolate">
+      {/* 1. LEAFLET MAP CANVAS */}
+      <div className="w-full h-full relative z-0">
         <MapContainer
           center={[39.8283, -98.5795]}
           zoom={4}
@@ -394,13 +377,20 @@ export const MapView: React.FC<MapViewProps> = ({
             />
           )}
 
-          {/* 2. 3D Topographic Terrain (Shaded Mountain Relief & Elevation) */}
+          {/* 2. 3D Topographic Terrain (Shaded Mountain Relief & Elevation Hillshade) */}
           {mapStyle === "terrain" && (
-            <TileLayer
-              attribution='&copy; Esri &mdash; National Geographic, Esri, USGS, NASA, METI, NRCAN'
-              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
-              className="map-tiles-terrain"
-            />
+            <>
+              <TileLayer
+                attribution='&copy; Esri &mdash; National Geographic, Esri, USGS, NASA'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+                className="map-tiles-terrain"
+              />
+              <TileLayer
+                attribution='&copy; Esri Elevation'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}"
+                opacity={0.42}
+              />
+            </>
           )}
 
           {/* 3. Satellite Imagery with Road & Boundary Labels */}
@@ -602,25 +592,19 @@ export const MapView: React.FC<MapViewProps> = ({
       {/* 8. CONSOLIDATED MAP CONTROLS HUD (Pinned Top-Right Corner) */}
       <div className="absolute top-4 right-4 z-[1000] pointer-events-auto">
         <div className="flex items-center space-x-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/90 shadow-md text-xs">
-          {/* 3D Perspective Tilt Button */}
+          {/* Quick Toggle: 3D Topo Terrain */}
           <button
             type="button"
-            onClick={() => {
-              const next3D = !is3DMode;
-              setIs3DMode(next3D);
-              if (next3D && mapStyle === "positron") {
-                setMapStyle("terrain"); // Automatically pair with Topo Terrain in 3D mode
-              }
-            }}
+            onClick={() => setMapStyle(mapStyle === "terrain" ? "positron" : "terrain")}
             className={`px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
-              is3DMode
-                ? "bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300 animate-pulse"
+              mapStyle === "terrain"
+                ? "bg-emerald-600 text-white shadow-md"
                 : "bg-slate-100 hover:bg-slate-200 text-slate-700"
             }`}
-            title={is3DMode ? "Switch to 2D Top-Down View" : "Switch to 3D Perspective Flight View"}
+            title="Toggle 3D Topographic Terrain & Shaded Elevation Relief"
           >
-            <Box className="w-3.5 h-3.5 text-indigo-400" />
-            <span>{is3DMode ? "3D Active" : "3D Mode"}</span>
+            <Mountain className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{mapStyle === "terrain" ? "3D Terrain Active" : "3D Terrain"}</span>
           </button>
 
           {/* Simulation Toggle: Play Route / Pause Route */}
@@ -726,33 +710,12 @@ export const MapView: React.FC<MapViewProps> = ({
 
                 <div className="my-2 border-t border-slate-100"></div>
 
-                {/* 2. Perspective & Overlays */}
+                {/* 2. Layer Overlays */}
                 <div className="px-2.5 py-1 text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                  Perspective & Overlays
+                  Layer Overlays
                 </div>
 
                 <div className="space-y-1">
-                  {/* 3D Tilt Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const next = !is3DMode;
-                      setIs3DMode(next);
-                      if (next && mapStyle === "positron") setMapStyle("terrain");
-                    }}
-                    className="w-full px-2.5 py-1.5 rounded-xl text-left flex items-center justify-between text-slate-700 hover:bg-slate-50"
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      <Box className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>3D Perspective Tilt</span>
-                    </span>
-                    <span
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        is3DMode ? "bg-indigo-600 ring-2 ring-indigo-200" : "bg-slate-300"
-                      }`}
-                    ></span>
-                  </button>
-
                   {/* Weather Heatmap Toggle */}
                   <button
                     type="button"
