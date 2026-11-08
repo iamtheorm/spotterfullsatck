@@ -240,7 +240,7 @@ export const InputPanel: React.FC<InputPanelProps> = ({
         {/* Panel Header with Title & Embedded System Status Badge */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center space-x-2">
-            <h2 className="text-sm font-black text-slate-900 tracking-tight">
+            <h2 className="text-sm font-bold text-slate-900 tracking-tight font-serif">
               Trip Details
             </h2>
             {isLoading ? (

@@ -88,7 +88,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h3 className="text-base font-bold text-slate-900">
+              <h3 className="text-base font-bold text-slate-900 font-serif">
                 {checkpointLabel}
               </h3>
               <span

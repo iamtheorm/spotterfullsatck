@@ -407,7 +407,7 @@ export function App() {
             <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-3.5 flex flex-col gap-3">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-xs font-black text-slate-900 tracking-tight">
+                  <h3 className="text-xs font-bold text-slate-900 tracking-tight font-serif">
                     Alternative Routes ({evaluation.routes.length})
                   </h3>
                   {evaluation.params?.departure_time && (

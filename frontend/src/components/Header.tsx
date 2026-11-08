@@ -62,10 +62,10 @@ export const Header: React.FC<HeaderProps> = ({ onOpenSettings }) => {
           </div>
 
           <div>
-            <h1 className="text-lg md:text-xl font-black text-slate-900 tracking-tight font-sans leading-tight">
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight font-serif leading-tight">
               SafeCorridor
             </h1>
-            <p className="text-xs font-medium text-slate-500">
+            <p className="text-xs font-medium text-slate-500 tracking-tight font-sans">
               Weather-Aware Freight Intelligence
             </p>
           </div>

@@ -35,7 +35,7 @@ export const RouteComparison: React.FC<RouteComparisonProps> = ({
       <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl p-5 shadow-2xl relative text-slate-900 space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-slate-200">
           <div>
-            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 font-serif">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>Alternative Routes Decision Matrix</span>
             </h2>
