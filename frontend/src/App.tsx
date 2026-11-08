@@ -107,22 +107,21 @@ export function App() {
     return "US";
   });
 
-  // Form input state with local persistence
+  // Form input state - starts empty on initial visit and refresh
   const [formInputs, setFormInputs] = useState<Partial<RouteEvaluationRequest>>(() => {
     try {
       localStorage.removeItem("spotter_form_inputs");
-      const stored = localStorage.getItem("safecorridor_form_inputs_v2");
-      if (stored) return JSON.parse(stored);
+      localStorage.removeItem("safecorridor_form_inputs_v2");
     } catch {}
     return {
-      origin: "Chicago, IL",
-      destination: "Dallas, TX",
+      origin: "",
+      destination: "",
       load_weight: 34000,
       step_miles: 25,
     };
   });
 
-  // Active evaluation response state with local persistence
+  // Active evaluation response state - starts empty on initial visit and refresh
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(() => {
     try {
       localStorage.removeItem("spotter_evaluation");
@@ -131,10 +130,7 @@ export function App() {
       localStorage.removeItem("safecorridor_evaluation_v4");
       localStorage.removeItem("safecorridor_evaluation_v5");
       localStorage.removeItem("safecorridor_evaluation_v6");
-      const stored = localStorage.getItem("safecorridor_evaluation_v7");
-      if (stored) {
-        return JSON.parse(stored);
-      }
+      localStorage.removeItem("safecorridor_evaluation_v7");
     } catch {}
     return null;
   });
@@ -247,11 +243,8 @@ export function App() {
     setForecastHour(0);
     setShowHeatmap(false);
 
-    // Save submitted input immediately
+    // Save submitted input in memory
     setFormInputs(req);
-    try {
-      localStorage.setItem("safecorridor_form_inputs_v2", JSON.stringify(req));
-    } catch {}
 
     // Auto-detect or sync region from the submitted inputs
     const detected = detectCountryCode(req.origin) || detectCountryCode(req.destination);
@@ -265,9 +258,6 @@ export function App() {
     try {
       const data = await evaluateRoutes(req);
       setEvaluation(data);
-      try {
-        localStorage.setItem("safecorridor_evaluation_v7", JSON.stringify(data));
-      } catch {}
 
       // Keep form inputs aligned with resolved display names
       const resolvedInputs: Partial<RouteEvaluationRequest> = {
@@ -276,9 +266,6 @@ export function App() {
         destination: data.destination?.name || req.destination,
       };
       setFormInputs(resolvedInputs);
-      try {
-        localStorage.setItem("safecorridor_form_inputs_v2", JSON.stringify(resolvedInputs));
-      } catch {}
 
       // Also ensure detected country code matches resolved origin/destination
       const resolvedDetected =
@@ -305,22 +292,6 @@ export function App() {
       setIsLoading(false);
     }
   };
-
-  // Auto-evaluate on initial mount if origin & destination are present but evaluation cache was refreshed
-  const didInitialEvalRef = useRef(false);
-  useEffect(() => {
-    if (didInitialEvalRef.current) return;
-    didInitialEvalRef.current = true;
-    if (!evaluation && formInputs.origin && formInputs.destination) {
-      handleEvaluate({
-        origin: formInputs.origin,
-        destination: formInputs.destination,
-        departure_time: formInputs.departure_time || new Date().toISOString(),
-        load_weight: formInputs.load_weight || 34000,
-        step_miles: formInputs.step_miles || 25,
-      });
-    }
-  }, []);
 
   // Update corridor grid when forecastHour changes (only when heatmap overlay is active)
   useEffect(() => {
